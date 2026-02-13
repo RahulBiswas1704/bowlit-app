@@ -1,9 +1,10 @@
 "use client";
 import { useState, useEffect } from "react";
-import { X, ShoppingBag, ArrowRight, Loader2, MapPin, AlertCircle } from "lucide-react";
+import { X, ShoppingBag, ArrowRight, Loader2, MapPin, AlertCircle, Plus, Minus, LocateFixed } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCart } from "../context/CartContext";
 import { supabase } from "../lib/supabaseClient";
+import LocationPicker from "./LocationPicker"; // <--- Import the new component
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -11,7 +12,7 @@ interface CartDrawerProps {
 }
 
 export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
-  const { cart, removeFromCart, clearCart, total } = useCart();
+  const { cart, removeFromCart, updateQuantity, clearCart, cartTotal } = useCart();
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [loading, setLoading] = useState(false);
   
@@ -24,6 +25,9 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
   const [selectedAddress, setSelectedAddress] = useState("");
   const [newAddress, setNewAddress] = useState(""); 
   const [isAddingNew, setIsAddingNew] = useState(false);
+  
+  // NEW: State for Map Modal
+  const [showMap, setShowMap] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -48,17 +52,23 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
       };
       fetchData();
     }
-  }, [isOpen, loading]);
+  }, [isOpen]);
 
   const handleQuickTopUp = async () => {
     if (!userId || !topUpAmount) return;
     const amount = parseInt(topUpAmount);
     setLoading(true);
-    const { error } = await supabase.from('wallets').upsert({ user_id: userId, balance: balance + amount });
+    const { error } = await supabase.from('wallets').upsert({ 
+        user_id: userId, 
+        balance: balance + amount 
+    }, { onConflict: 'user_id' });
+
     if (!error) {
         alert("Top up successful!");
         setBalance(prev => prev + amount); 
         setTopUpAmount("");
+    } else {
+        alert("Top up failed: " + error.message);
     }
     setLoading(false);
   };
@@ -67,30 +77,24 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
     const finalAddress = isAddingNew ? newAddress : selectedAddress;
     if (!customer.name || !customer.phone || !finalAddress) return alert("Please fill all details!");
 
-    if (balance < total) return alert(`Insufficient Balance!`);
+    if (balance < cartTotal) return alert(`Insufficient Balance! You need ₹${cartTotal - balance} more.`);
 
     setLoading(true);
 
-    // 1. Deduct Money
-    const { error: walletError } = await supabase
-        .from('wallets')
-        .update({ balance: balance - total })
-        .eq('user_id', userId);
-
-    if (walletError) {
-        alert("Payment Error: " + walletError.message);
+    const { error: paymentError } = await supabase.rpc('pay_order', { amount_to_pay: cartTotal });
+    if (paymentError) {
+        alert("Payment Failed: " + paymentError.message);
         setLoading(false);
-        return;
+        return; 
     }
 
-    // 2. CHECK FOR SUBSCRIPTION PLANS IN CART
-    const subscriptionItem = cart.find(item => item.type === "Subscription");
+    const subscriptionItem = cart.find(item => item.type === "Subscription" || item.name.includes("Plan") || item.name.includes("Bowl") || item.type === "Trial");
+    
     if (subscriptionItem) {
-        // SMART LOGIC: Check if it is a Lunch + Dinner plan (60 credits) or Standard (30)
-        const isDoublePlan = subscriptionItem.name.includes("Lunch + Dinner");
-        const creditsToAdd = isDoublePlan ? 60 : 30;
+        let creditsToAdd = 22;
+        if (subscriptionItem.type === "Trial") creditsToAdd = 3;
+        else if (subscriptionItem.timing === 'combo' || subscriptionItem.name.includes("Lunch + Dinner")) creditsToAdd = 44;
         
-        // Fetch existing credits
         const { data: { user } } = await supabase.auth.getUser();
         const currentCredits = user?.user_metadata.credits || 0;
 
@@ -101,10 +105,9 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                 plan_expiry: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
             }
         });
-        alert(`Plan Activated! You now have ${currentCredits + creditsToAdd} credits.`);
+        alert(`Plan Activated! Added ${creditsToAdd} credits.`);
     }
 
-    // 3. Create Order Record
     const { error: orderError } = await supabase
       .from('orders')
       .insert([{ 
@@ -112,11 +115,13 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
           customer_phone: customer.phone,
           address: finalAddress,
           items: cart, 
-          total_amount: total
+          total_amount: cartTotal,
+          user_id: userId,
+          status: 'Pending'
       }]);
 
     if (!orderError) {
-       if (isAddingNew) {
+       if (isAddingNew && userId) {
           const updatedAddresses = [...savedAddresses, finalAddress];
           const uniqueAddresses = Array.from(new Set(updatedAddresses));
           await supabase.auth.updateUser({ data: { addresses: uniqueAddresses } });
@@ -125,12 +130,15 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
        clearCart();
        setIsCheckingOut(false);
        onClose();
+       window.location.reload(); 
+    } else {
+       alert("Order creation failed: " + orderError.message);
     }
     setLoading(false);
   };
 
   const cartLength = cart?.length || 0;
-  const deficit = Math.max(0, total - balance); 
+  const deficit = Math.max(0, cartTotal - balance); 
 
   return (
     <AnimatePresence>
@@ -156,19 +164,23 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
               ) : (
                 <div className="space-y-4">
                   {cart.map((item: any, index: number) => (
-                    <div key={index} className="flex gap-4 p-4 bg-gray-50 rounded-2xl border border-gray-100">
-                      <div className="w-16 h-16 bg-white rounded-xl overflow-hidden shrink-0"><img src={item.image} className="w-full h-full object-cover" /></div>
+                    <div key={index} className="flex gap-4 p-4 bg-gray-50 rounded-2xl border border-gray-100 items-center">
+                      <div className="w-16 h-16 bg-white rounded-xl overflow-hidden shrink-0">
+                          {item.image && <img src={item.image} className="w-full h-full object-cover" alt={item.name}/>}
+                      </div>
                       <div className="flex-1">
                         <div className="flex justify-between items-start">
                           <div>
                               <h4 className="font-bold text-gray-900 leading-tight">{item.name}</h4>
-                              {item.type === "Subscription" && <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold">Plan</span>}
+                              {(item.type === "Subscription" || item.type === "Trial") && <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold">Plan</span>}
                           </div>
-                          <button onClick={() => removeFromCart(item.id)} className="text-red-500 hover:bg-red-50 p-1 rounded"><X size={14} /></button>
                         </div>
                         <p className="text-orange-600 font-mono text-sm font-bold mt-1">₹{item.price}</p>
-                        {/* Show plan details if it's a subscription */}
-                        {item.type === "Subscription" && <p className="text-xs text-gray-400 mt-1">{item.plan}</p>}
+                        <div className="flex items-center gap-3 mt-2">
+                            <button onClick={() => updateQuantity(item.id, -1)} className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center hover:bg-gray-300 text-gray-700"><Minus size={12}/></button>
+                            <span className="text-sm font-bold w-4 text-center">{item.quantity}</span>
+                            <button onClick={() => updateQuantity(item.id, 1)} className="w-6 h-6 rounded-full bg-black text-white flex items-center justify-center hover:bg-gray-800"><Plus size={12}/></button>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -180,7 +192,7 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
               <div className="p-6 border-t bg-gray-50 space-y-4">
                 <div className="flex justify-between items-center text-xl font-bold text-gray-900">
                   <span>Total Bill</span>
-                  <span>₹{total}</span>
+                  <span>₹{cartTotal}</span>
                 </div>
 
                 {isCheckingOut && deficit > 0 && (
@@ -189,7 +201,7 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                         <p className="text-sm text-gray-600 mb-3">You have <strong>₹{balance}</strong>. You need <strong>₹{deficit}</strong> more.</p>
                         <div className="flex gap-2">
                             <input type="number" className="w-full p-2 border rounded-lg" placeholder={`Enter ₹${deficit}+`} value={topUpAmount} onFocus={() => !topUpAmount && setTopUpAmount(deficit.toString())} onChange={(e) => setTopUpAmount(e.target.value)} />
-                            <button onClick={handleQuickTopUp} disabled={loading || !topUpAmount || parseInt(topUpAmount) < deficit} className="bg-red-600 text-white px-4 py-2 rounded-lg font-bold text-sm whitespace-nowrap disabled:opacity-50">{loading ? "..." : "Add & Retry"}</button>
+                            <button onClick={handleQuickTopUp} disabled={loading || !topUpAmount || parseInt(topUpAmount) < deficit} className="bg-red-600 text-white px-4 py-2 rounded-lg font-bold text-sm whitespace-nowrap disabled:opacity-50">{loading ? "..." : "Add & Pay"}</button>
                         </div>
                     </div>
                 )}
@@ -208,7 +220,13 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                                 {savedAddresses.map((addr, idx) => <option key={idx} value={addr}>{addr}</option>)}
                             </select>
                         ) : (
-                            <input type="text" placeholder="New address..." className="w-full p-3 pl-10 border rounded-xl font-bold text-gray-800" value={newAddress} onChange={e => setNewAddress(e.target.value)} />
+                            // UPDATED: Input + Map Button
+                            <div className="flex gap-2">
+                                <input type="text" placeholder="Enter address..." className="w-full p-3 pl-10 border rounded-xl font-bold text-gray-800" value={newAddress} onChange={e => setNewAddress(e.target.value)} />
+                                <button onClick={() => setShowMap(true)} className="bg-orange-100 text-orange-600 p-3 rounded-xl hover:bg-orange-200 transition-colors" title="Pick on Map">
+                                    <LocateFixed size={20} />
+                                </button>
+                            </div>
                         )}
                         {savedAddresses.length > 0 && <button onClick={() => setIsAddingNew(!isAddingNew)} className="absolute right-3 top-3.5 text-xs text-orange-600 font-bold">{isAddingNew ? "Select Saved" : "+ Add New"}</button>}
                     </div>
@@ -216,7 +234,7 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                     <div className="flex gap-2 pt-2">
                        <button onClick={() => setIsCheckingOut(false)} className="w-1/3 bg-gray-200 text-gray-700 py-3 rounded-xl font-bold">Cancel</button>
                        <button onClick={handlePayment} disabled={loading || deficit > 0} className="w-2/3 bg-black text-white py-3 rounded-xl font-bold flex justify-center items-center gap-2 disabled:bg-gray-400">
-                            {loading ? <Loader2 className="animate-spin" /> : `Pay ₹${total}`}
+                            {loading ? <Loader2 className="animate-spin" /> : `Pay ₹${cartTotal}`}
                        </button>
                     </div>
                   </motion.div>
@@ -228,6 +246,17 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
               </div>
             )}
           </motion.div>
+
+          {/* RENDER THE LOCATION PICKER MODAL */}
+          {showMap && (
+             <LocationPicker 
+                onConfirm={(address) => {
+                    setNewAddress(address);
+                    setShowMap(false);
+                }}
+                onClose={() => setShowMap(false)}
+             />
+          )}
         </>
       )}
     </AnimatePresence>

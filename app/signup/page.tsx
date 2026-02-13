@@ -2,7 +2,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { User, Phone, MapPin, ArrowRight, ChefHat, Leaf, Beef, Utensils, Mail, Lock, Loader2, Eye, EyeOff } from "lucide-react";
+import { User, Phone, MapPin, ArrowRight, Leaf, Beef, Utensils, Mail, Lock, Loader2, Eye, EyeOff } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 
 export default function SignupPage() {
@@ -46,12 +46,18 @@ export default function SignupPage() {
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center mb-10">
         <Link href="/" className="inline-block hover:scale-105 transition-transform">
-          <div className="flex justify-center items-center gap-2 mb-2">
-            <div className="bg-orange-600 p-2 rounded-xl shadow-lg shadow-orange-200"><ChefHat className="text-white" size={32} /></div>
+          <div className="flex justify-center items-center">
+            <img 
+              src="/logo.svg" 
+              alt="BowlIt Logo" 
+              className="h-16 w-auto object-contain"
+              onError={(e) => { 
+                e.currentTarget.src = "https://cdn-icons-png.flaticon.com/512/3014/3014520.png" 
+              }}
+            />
           </div>
-          <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight">Join Bowl<span className="text-orange-600">It</span></h2>
         </Link>
-        <p className="mt-2 text-sm text-gray-600">Fresh homestyle meals, delivered to your desk.</p>
+        <p className="mt-4 text-sm text-gray-600">Fresh homestyle meals, delivered to your desk.</p>
       </div>
 
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="sm:mx-auto sm:w-full sm:max-w-md">
@@ -61,7 +67,7 @@ export default function SignupPage() {
               <label className="block text-sm font-bold text-gray-700 mb-1">Full Name</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><User className="h-5 w-5 text-gray-400" /></div>
-                <input name="fullName" type="text" required placeholder="Rahul Biswas" className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 transition-all" onChange={handleChange} />
+                <input name="fullName" type="text" required placeholder="Your Name" className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 transition-all" onChange={handleChange} />
               </div>
             </div>
             <div>
