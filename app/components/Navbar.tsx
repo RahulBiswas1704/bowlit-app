@@ -50,8 +50,11 @@ export default function Navbar() {
     setBalance(0);
     window.location.reload(); 
   };
+// OLD:
+// const displayName = user?.user_metadata?.full_name?.split(' ')[0] || "Foodie";
 
-  const displayName = user?.user_metadata?.full_name?.split(' ')[0] || "Foodie";
+// NEW: Show first name, OR email, OR "Guest"
+const displayName = user?.user_metadata?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || "Guest";
 
   return (
     <>

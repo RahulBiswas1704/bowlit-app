@@ -1,18 +1,39 @@
 "use client";
 import { useEffect, useState, useMemo } from "react";
-import Link from "next/link";
 import { 
-  ChefHat, Plus, Trash2, Loader2, X, Lock, LogOut, 
-  ShoppingBag, Utensils, CheckCircle, Clock, MapPin, 
-  LayoutDashboard, CreditCard, Users, TrendingDown, 
-  Download, Bike, UserPlus, Phone
+  ChefHat, Plus, Trash2, Loader2, LogOut, 
+  ShoppingBag, Utensils, Clock, 
+  LayoutDashboard, CreditCard, Bike, UserPlus, Phone, XCircle, CheckCircle 
 } from "lucide-react";
-import { supabase } from "../lib/supabaseClient";
-import { Session } from "@supabase/supabase-js";
 
+// ✅ CHANGE THIS LINE: Import the ADMIN client, but call it 'supabase'
+import { supabaseAdmin as supabase } from "../lib/supabaseAdminClient"; 
+
+import { Session } from "@supabase/supabase-js";
 // --- TYPES ---
-type MenuItem = { id: number; name: string; price: number; type: string; is_available: boolean; description?: string; image?: string; };
-type Order = { id: number; created_at: string; customer_name: string; customer_phone: string; address: string; items: any[]; total_amount: number; status: string; rider_phone: string | null; };
+// Added 'image' to MenuItem type
+type MenuItem = { 
+  id: number; 
+  name: string; 
+  price: number; 
+  type: string; 
+  is_available: boolean; 
+  description?: string; 
+  image?: string; 
+};
+
+type Order = { 
+  id: number; 
+  created_at: string; 
+  customer_name: string; 
+  customer_phone: string; 
+  address: string; 
+  items: any[]; 
+  total_amount: number; 
+  status: string; 
+  rider_phone: string | null; 
+};
+
 type Rider = { phone: string; name: string; status: string; };
 
 const formatMoney = (amount: number) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(amount);
@@ -25,6 +46,7 @@ export default function AdminPanel() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
+        // Verify admin status from DB
         supabase.from('admins').select('id').eq('id', session.user.id).single()
           .then(({ data }) => {
             if (data) { setSession(session); setIsAdmin(true); }
@@ -40,7 +62,7 @@ export default function AdminPanel() {
   return <AdminDashboard />;
 }
 
-// --- ADMIN LOGIN ---
+// --- ADMIN LOGIN (Unchanged) ---
 function AdminLogin({ onLoginSuccess }: { onLoginSuccess: () => void }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -83,20 +105,37 @@ function AdminDashboard() {
   const [isAddingDish, setIsAddingDish] = useState(false);
   const [isAddingRider, setIsAddingRider] = useState(false);
   
+  // Added 'image' to newItem state
   const [newItem, setNewItem] = useState({ name: "", price: "", type: "Veg", description: "", image: "" });
   const [newRider, setNewRider] = useState({ name: "", phone: "", password: "" });
 
-  useEffect(() => { fetchData(); }, []);
+  // Temporary state to hold selected rider in dropdown before assigning
+  const [selectedRiders, setSelectedRiders] = useState<{[key:number]: string}>({});
+
+  useEffect(() => { 
+    fetchData(); 
+
+    // ✅ REAL-TIME SUBSCRIPTION
+    // This listens for ANY change in the 'orders' table (like a rider marking it delivered)
+    const channel = supabase
+      .channel('realtime:orders')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
+        console.log('Realtime update:', payload);
+        fetchData(); // Refresh data immediately
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, []);
 
   const fetchData = async () => {
-    setLoading(true);
+    // Note: We don't set loading(true) here to avoid flickering on real-time updates
     const { data: o } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
     const { data: m } = await supabase.from('menu_items').select('*').order('id', { ascending: true });
     const { data: r } = await supabase.from('riders').select('*');
-    setOrders(o || []);
-    setMenuItems(m || []);
-    setRiders(r || []);
-    setLoading(false);
+    if (o) setOrders(o);
+    if (m) setMenuItems(m);
+    if (r) setRiders(r);
   };
 
   // Synchronized Stats
@@ -108,8 +147,16 @@ function AdminDashboard() {
   }), [orders, riders]);
 
   // --- ACTIONS ---
+
+  // 1. Add Dish with Image
   const handleAddItem = async () => {
-    await supabase.from('menu_items').insert([newItem]);
+    // Include image in insert
+    await supabase.from('menu_items').insert([{
+      name: newItem.name,
+      price: parseFloat(newItem.price),
+      type: newItem.type,
+      image: newItem.image // Save the URL
+    }]);
     setIsAddingDish(false);
     fetchData();
   };
@@ -120,8 +167,26 @@ function AdminDashboard() {
     else { setIsAddingRider(false); fetchData(); }
   };
 
-  const assignRider = async (orderId: number, phone: string) => {
-    await supabase.from('orders').update({ rider_phone: phone, status: 'Out for Delivery' }).eq('id', orderId);
+  // 2. Assign Rider Logic
+  const assignRider = async (orderId: number) => {
+    const riderPhone = selectedRiders[orderId];
+    if (!riderPhone) return alert("Please select a rider first");
+
+    await supabase.from('orders')
+      .update({ rider_phone: riderPhone, status: 'Out for Delivery' })
+      .eq('id', orderId);
+    
+    fetchData();
+  };
+
+  // 3. Unassign Rider Logic
+  const unassignRider = async (orderId: number) => {
+    if(!confirm("Unassign this rider? Order will go back to pending.")) return;
+
+    await supabase.from('orders')
+      .update({ rider_phone: null, status: 'Cooking' }) // Reset status
+      .eq('id', orderId);
+    
     fetchData();
   };
 
@@ -142,7 +207,7 @@ function AdminDashboard() {
   return (
     <div className="min-h-screen bg-gray-50 flex">
       {/* SIDEBAR */}
-      <aside className="w-64 bg-gray-900 text-white p-6 fixed h-full">
+      <aside className="w-64 bg-gray-900 text-white p-6 fixed h-full z-10">
         <div className="flex items-center gap-2 mb-10 text-orange-500 font-bold text-2xl"><ChefHat /> Admin</div>
         <nav className="space-y-2">
           <SidebarItem icon={<LayoutDashboard size={20}/>} label="Overview" active={activeTab === 'overview'} onClick={() => setActiveTab('overview')} />
@@ -174,24 +239,73 @@ function AdminDashboard() {
                 </div>
             )}
 
+            {/* --- UPDATED LIVE ORDERS TAB --- */}
             {activeTab === 'orders' && (
                <div className="space-y-4">
-                 {orders.map((order) => (
-                     <div key={order.id} className="bg-white p-6 rounded-2xl border flex justify-between items-center">
+                 {orders.map((order) => {
+                     const assignedRider = riders.find(r => r.phone === order.rider_phone);
+                     
+                     return (
+                     <div key={order.id} className="bg-white p-6 rounded-2xl border flex justify-between items-center shadow-sm">
                        <div>
-                         <div className="flex items-center gap-2 mb-1"><span className="font-bold">#{order.id}</span><span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-bold">{order.status}</span></div>
+                         <div className="flex items-center gap-2 mb-2">
+                            <span className="font-bold text-lg">#{order.id}</span>
+                            <span className={`text-xs px-2 py-1 rounded-full font-bold ${order.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
+                                {order.status}
+                            </span>
+                         </div>
                          <h3 className="font-bold">{order.customer_name}</h3>
-                         <p className="text-gray-500 text-sm">{order.address}</p>
+                         <p className="text-gray-500 text-sm mb-1">{order.address}</p>
+                         <p className="font-mono text-xs text-gray-400">Items: {order.items?.length || 0} • Total: {formatMoney(order.total_amount)}</p>
                        </div>
-                       <div className="flex flex-col gap-2">
-                           <select className="p-2 border rounded-lg text-sm font-bold" value={order.rider_phone || ""} onChange={(e) => assignRider(order.id, e.target.value)}>
-                               <option value="">Assign Rider</option>
-                               {riders.map(r => <option key={r.phone} value={r.phone}>{r.name}</option>)}
-                           </select>
-                           <button onClick={() => updateOrderStatus(order.id, 'Completed')} className="bg-green-600 text-white p-2 rounded-lg text-xs font-bold">Mark Done</button>
+
+                       <div className="flex flex-col items-end gap-3">
+                           {/* RIDER ASSIGNMENT LOGIC */}
+                           {order.rider_phone ? (
+                               <div className="flex items-center gap-2 bg-gray-50 p-2 rounded-lg border">
+                                   <div className="text-right">
+                                       <p className="text-xs text-gray-500 font-bold uppercase">Assigned Rider</p>
+                                       <p className="font-bold text-sm">{assignedRider?.name || order.rider_phone}</p>
+                                   </div>
+                                   {/* Unassign Button */}
+                                   {order.status !== 'Completed' && (
+                                       <button 
+                                           onClick={() => unassignRider(order.id)}
+                                           className="p-2 text-red-500 hover:bg-red-50 rounded-full"
+                                           title="Unassign Rider"
+                                       >
+                                           <XCircle size={20} />
+                                       </button>
+                                   )}
+                               </div>
+                           ) : (
+                               <div className="flex gap-2">
+                                   <select 
+                                       className="p-2 border rounded-lg text-sm font-bold bg-white" 
+                                       value={selectedRiders[order.id] || ""} 
+                                       onChange={(e) => setSelectedRiders({...selectedRiders, [order.id]: e.target.value})}
+                                   >
+                                       <option value="">Select Rider...</option>
+                                       {riders.map(r => <option key={r.phone} value={r.phone}>{r.name} ({r.status})</option>)}
+                                   </select>
+                                   <button 
+                                       onClick={() => assignRider(order.id)} 
+                                       className="bg-black text-white px-4 py-2 rounded-lg text-xs font-bold"
+                                   >
+                                       Assign
+                                   </button>
+                               </div>
+                           )}
+
+                           {/* Manual Complete Button (Backup) */}
+                           {order.status !== 'Completed' && (
+                               <button onClick={() => updateOrderStatus(order.id, 'Completed')} className="text-green-600 text-xs font-bold hover:underline">
+                                   Mark Completed Manually
+                               </button>
+                           )}
                        </div>
                      </div>
-                 ))}
+                 )})}
                </div>
             )}
 
@@ -211,10 +325,17 @@ function AdminDashboard() {
             {activeTab === 'menu' && (
                 <div className="bg-white rounded-2xl border overflow-hidden">
                     <table className="w-full text-left">
-                        <thead className="bg-gray-50 text-xs font-bold uppercase"><tr><th className="p-4">Dish</th><th className="p-4">Price</th><th className="p-4">Stock</th><th className="p-4 text-right">Actions</th></tr></thead>
+                        <thead className="bg-gray-50 text-xs font-bold uppercase"><tr><th className="p-4">Image</th><th className="p-4">Dish</th><th className="p-4">Price</th><th className="p-4">Stock</th><th className="p-4 text-right">Actions</th></tr></thead>
                         <tbody className="divide-y">
                             {menuItems.map(item => (
                                 <tr key={item.id}>
+                                    <td className="p-4">
+                                        {item.image ? (
+                                            <img src={item.image} alt={item.name} className="w-12 h-12 rounded-lg object-cover bg-gray-100" />
+                                        ) : (
+                                            <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center text-gray-300"><Utensils size={16}/></div>
+                                        )}
+                                    </td>
                                     <td className="p-4 font-bold">{item.name}</td>
                                     <td className="p-4">₹{item.price}</td>
                                     <td className="p-4"><button onClick={() => toggleStock(item.id, item.is_available)} className={`px-2 py-1 rounded text-xs font-bold ${item.is_available ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{item.is_available ? "In Stock" : "Out"}</button></td>
@@ -249,9 +370,26 @@ function AdminDashboard() {
                 <div className="bg-white p-6 rounded-2xl w-full max-w-sm">
                     <h3 className="text-xl font-bold mb-4">Add Dish</h3>
                     <div className="space-y-3">
-                        <input className="w-full border p-3 rounded-xl" placeholder="Name" onChange={e => setNewItem({...newItem, name: e.target.value})} />
-                        <input className="w-full border p-3 rounded-xl" type="number" placeholder="Price" onChange={e => setNewItem({...newItem, price: e.target.value})} />
-                        <select className="w-full border p-3 rounded-xl" onChange={e => setNewItem({...newItem, type: e.target.value})}><option value="Veg">Veg</option><option value="Non-Veg">Non-Veg</option></select>
+                        {/* Added Image Input */}
+                        <div className="relative">
+                            <input 
+                                className="w-full border p-3 rounded-xl pl-10" 
+                                placeholder="Image URL (https://...)" 
+                                onChange={e => setNewItem({...newItem, image: e.target.value})} 
+                            />
+                            <div className="absolute left-3 top-3.5 text-gray-400"><Utensils size={18}/></div>
+                        </div>
+                        
+                        <input className="w-full border p-3 rounded-xl" placeholder="Dish Name" onChange={e => setNewItem({...newItem, name: e.target.value})} />
+                        
+                        <div className="flex gap-2">
+                            <input className="w-full border p-3 rounded-xl" type="number" placeholder="Price (₹)" onChange={e => setNewItem({...newItem, price: e.target.value})} />
+                            <select className="w-full border p-3 rounded-xl bg-white" onChange={e => setNewItem({...newItem, type: e.target.value})}>
+                                <option value="Veg">Veg</option>
+                                <option value="Non-Veg">Non-Veg</option>
+                            </select>
+                        </div>
+                        
                         <button onClick={handleAddItem} className="w-full bg-black text-white p-3 rounded-xl font-bold">Save Dish</button>
                         <button onClick={() => setIsAddingDish(false)} className="w-full text-gray-400 mt-2">Cancel</button>
                     </div>

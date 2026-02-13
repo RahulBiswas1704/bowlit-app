@@ -1,54 +1,98 @@
 "use client";
-import { createContext, useContext, useState, ReactNode } from "react";
 
-// Define what an Item looks like
-export type CartItem = {
-  id: string; // Changed to string to match MenuCard
+import React, { createContext, useContext, useState, useEffect } from "react";
+
+// Keeping the interface simple and flexible to match your existing data
+export interface CartItem {
+  id: number;
   name: string;
   price: number;
   image: string;
-  plan?: string;
-  type?: string; 
-};
+  type: string;
+  quantity: number;
+}
 
-// Define what the Context provides
-type CartContextType = {
-  cart: CartItem[];      // Renamed from 'items' to 'cart'
+interface CartContextType {
+  cart: CartItem[];
   addToCart: (item: CartItem) => void;
-  removeFromCart: (id: string) => void;
+  removeFromCart: (id: number) => void;
   clearCart: () => void;
-  total: number;         // Renamed from 'cartTotal' to 'total'
-};
+  cartTotal: number;
+}
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
-export function CartProvider({ children }: { children: ReactNode }) {
-  const [cart, setCart] = useState<CartItem[]>([]); // Renamed state to 'cart'
+export const CartProvider = ({ children }: { children: React.ReactNode }) => {
+  const [cart, setCart] = useState<CartItem[]>([]);
 
+  // ✅ FIX 1: Load cart from localStorage when the app starts
+  useEffect(() => {
+    // Check if we are in the browser to avoid server-side errors
+    if (typeof window !== "undefined") {
+      const storedCart = localStorage.getItem("bowlit_cart");
+      if (storedCart) {
+        try {
+          setCart(JSON.parse(storedCart));
+        } catch (error) {
+          console.error("Failed to parse cart from storage:", error);
+        }
+      }
+    }
+  }, []);
+
+  // ✅ FIX 2: Save cart to localStorage whenever it changes
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("bowlit_cart", JSON.stringify(cart));
+    }
+  }, [cart]);
+
+  // Logic to add item (checks if item already exists to update quantity)
   const addToCart = (item: CartItem) => {
-    // Generate a unique String ID
-    const uniqueItem = { ...item, id: Math.random().toString(36).substr(2, 9) };
-    setCart((prev) => [...prev, uniqueItem]);
+    setCart((prevCart) => {
+      const existingItem = prevCart.find((cartItem) => cartItem.id === item.id);
+      
+      if (existingItem) {
+        // If item exists, just increase quantity
+        return prevCart.map((cartItem) =>
+          cartItem.id === item.id
+            ? { ...cartItem, quantity: cartItem.quantity + 1 }
+            : cartItem
+        );
+      } else {
+        // If item is new, add it with quantity 1
+        return [...prevCart, { ...item, quantity: 1 }];
+      }
+    });
   };
 
-  const removeFromCart = (id: string) => {
-    setCart((prev) => prev.filter((item) => item.id !== id));
+  // Logic to remove item
+  const removeFromCart = (id: number) => {
+    setCart((prevCart) => prevCart.filter((item) => item.id !== id));
   };
 
-  const clearCart = () => setCart([]);
+  // Logic to clear cart
+  const clearCart = () => {
+    setCart([]);
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("bowlit_cart");
+    }
+  };
 
-  const total = cart.reduce((sum, item) => sum + item.price, 0);
+  // Calculate total price automatically
+  const cartTotal = cart.reduce((total, item) => total + item.price * item.quantity, 0);
 
   return (
-    <CartContext.Provider value={{ cart, addToCart, removeFromCart, clearCart, total }}>
+    <CartContext.Provider value={{ cart, addToCart, removeFromCart, clearCart, cartTotal }}>
       {children}
     </CartContext.Provider>
   );
-}
+};
 
-// Hook to use the cart easily
-export function useCart() {
+export const useCart = () => {
   const context = useContext(CartContext);
-  if (!context) throw new Error("useCart must be used within a CartProvider");
+  if (!context) {
+    throw new Error("useCart must be used within a CartProvider");
+  }
   return context;
-}
+};
