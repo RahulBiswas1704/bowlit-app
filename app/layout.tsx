@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { CartProvider } from "./context/CartContext";
+import Footer from "./components/Footer"; // Import the new Footer
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -25,7 +26,12 @@ export default function RootLayout({
       </head>
       <body className={inter.className}>
         <CartProvider>
-          {children}
+          <div className="flex flex-col min-h-screen">
+             <main className="flex-grow">
+                {children}
+             </main>
+             <Footer />
+          </div>
         </CartProvider>
       </body>
     </html>
