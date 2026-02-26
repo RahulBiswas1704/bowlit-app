@@ -76,9 +76,9 @@ export default function InstallBanner() {
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center p-1 shrink-0">
                {/* Fallback image if logo.svg fails */}
-               <img src="/logo.svg" alt="App Icon" className="w-full h-full object-contain" 
-                  onError={(e) => { e.currentTarget.src = "https://cdn-icons-png.flaticon.com/512/3014/3014520.png" }} 
-               />
+               <img src="/logo1.svg" alt="App Icon" className="w-full h-full object-contain" 
+    onError={(e) => { e.currentTarget.src = "https://cdn-icons-png.flaticon.com/512/3014/3014520.png" }} 
+/>
             </div>
             <div>
               <h4 className="font-bold text-sm leading-tight">BowlIt App</h4>

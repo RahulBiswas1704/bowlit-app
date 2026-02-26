@@ -26,7 +26,8 @@ export default function MenuCard({ title, description, price, image, type }: Men
       price: priceNumber,
       image: image,
       plan: "Standard Plan",
-      type: type
+      type: type,
+      quantity: 1 // <--- Added this required property!
     });
 
     setIsAdded(true);

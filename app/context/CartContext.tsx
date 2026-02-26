@@ -11,6 +11,8 @@ export interface CartItem {
   quantity: number;
   timing?: string;
   description?: string;
+  plan?: string; // <--- ADD THIS LINE
+  // ...
 }
 
 interface CartContextType {

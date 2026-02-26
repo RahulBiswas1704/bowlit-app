@@ -4,6 +4,8 @@ import "./globals.css";
 import { CartProvider } from "./context/CartContext";
 import Footer from "./components/Footer";
 import InstallBanner from "./components/InstallBanner";
+import NotificationManager from "./components/NotificationManager";
+import SplashScreen from "./components/SplashScreen";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -42,6 +44,7 @@ export default function RootLayout({
      crossOrigin=""/>
       </head>
       <body className={inter.className}>
+        <SplashScreen />
         <CartProvider>
           <div className="flex flex-col min-h-screen">
              <main className="flex-grow">
@@ -52,6 +55,9 @@ export default function RootLayout({
           
           {/* PWA Install Banner */}
           <InstallBanner />
+          
+          {/* Push Notification Manager */}
+          <NotificationManager />
           
         </CartProvider>
       </body>
