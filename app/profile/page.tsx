@@ -162,85 +162,81 @@ export default function ProfilePage() {
   if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-orange-600" /></div>;
 
   return (
-    <main className="min-h-screen bg-gray-50 pt-20 md:pt-24 pb-12 px-4 md:px-6">
-      <div className="max-w-4xl mx-auto space-y-6 md:space-y-8">
+    <main className="min-h-screen bg-gray-50 pt-24 pb-12 px-6">
+      <div className="max-w-4xl mx-auto space-y-8">
         
         {/* HEADER */}
         <div>
-          <Link href="/" className="inline-flex items-center gap-2 text-gray-500 hover:text-orange-600 mb-4 md:mb-6 transition-colors font-bold text-sm">
+          <Link href="/" className="inline-flex items-center gap-2 text-gray-500 hover:text-orange-600 mb-6 transition-colors font-bold text-sm">
             <ArrowLeft size={18} /> Back to Home
           </Link>
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
              <div>
-                <h1 className="text-2xl md:text-3xl font-bold text-gray-900">My Profile</h1>
-                <p className="text-sm md:text-base text-gray-500">Manage subscription and preferences.</p>
+                <h1 className="text-3xl font-bold text-gray-900">My Profile</h1>
+                <p className="text-gray-500">Manage subscription and preferences.</p>
              </div>
              <button 
                onClick={() => setIsAutoOrderActive(!isAutoOrderActive)}
-               className={`flex items-center justify-center gap-2 md:gap-3 px-4 py-3 md:px-6 md:py-3 rounded-xl md:rounded-full font-bold transition-all w-full md:w-auto text-sm md:text-base ${isAutoOrderActive ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-red-100 text-red-700 hover:bg-red-200'}`}
+               className={`flex items-center gap-3 px-6 py-3 rounded-full font-bold transition-all ${isAutoOrderActive ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-red-100 text-red-700 hover:bg-red-200'}`}
              >
-                {isAutoOrderActive ? <PlayCircle size={18} className="md:w-5 md:h-5" /> : <PauseCircle size={18} className="md:w-5 md:h-5" />}
+                {isAutoOrderActive ? <PlayCircle size={20} /> : <PauseCircle size={20} />}
                 {isAutoOrderActive ? "Subscription Active" : "Subscription Paused"}
              </button>
           </div>
         </div>
 
         {/* 1. PLAN & CREDITS SUMMARY */}
-        <div className="grid md:grid-cols-2 gap-4 md:gap-6">
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-gray-900 text-white rounded-2xl md:rounded-3xl p-5 md:p-8 shadow-xl relative overflow-hidden">
+        <div className="grid md:grid-cols-2 gap-6">
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-gray-900 text-white rounded-3xl p-8 shadow-xl relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-48 h-48 bg-blue-500/20 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
                 <div className="relative z-10">
-                    <div className="flex items-center gap-2 md:gap-3 mb-2 text-gray-400 font-bold uppercase text-[10px] md:text-xs tracking-wider">
+                    <div className="flex items-center gap-3 mb-2 text-gray-400 font-bold uppercase text-xs tracking-wider">
                         <Utensils size={14} /> Active Plan
                     </div>
-                    <h2 className="text-xl md:text-2xl font-bold mb-1">{activePlan || "No Active Plan"}</h2>
-                    <p className="text-xs md:text-sm text-gray-400 mb-6">
+                    <h2 className="text-2xl font-bold mb-1">{activePlan || "No Active Plan"}</h2>
+                    <p className="text-sm text-gray-400 mb-6">
                         {activePlan.includes("Lunch + Dinner") ? "2 Meals/Day deduction" : "1 Meal/Day deduction"}
                     </p>
                     
                     <div className="flex items-end gap-2">
-                        <span className="text-4xl md:text-5xl font-extrabold text-white">{credits}</span>
-                        <span className="text-base md:text-lg font-bold text-gray-400 mb-1">Credits Left</span>
+                        <span className="text-5xl font-extrabold text-white">{credits}</span>
+                        <span className="text-lg font-bold text-gray-400 mb-1">Credits Left</span>
                     </div>
                 </div>
             </motion.div>
 
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-2xl md:rounded-3xl p-5 md:p-8 shadow-sm border border-gray-100 flex flex-col justify-between">
-               <div className="mb-4 md:mb-0">
-                   <p className="text-gray-400 text-[10px] md:text-xs font-bold uppercase mb-1 md:mb-2">Wallet Balance</p>
-                   <h2 className="text-3xl md:text-4xl font-bold text-gray-900 md:mb-6">₹{balance}</h2>
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100 flex flex-col justify-between">
+               <div>
+                   <p className="text-gray-400 text-xs font-bold uppercase mb-2">Wallet Balance</p>
+                   <h2 className="text-4xl font-bold text-gray-900 mb-6">₹{balance}</h2>
                </div>
-               <Link href="/wallet" className="w-full">
-                 <button className="w-full bg-orange-50 text-orange-700 px-4 py-3 md:px-6 md:py-3 rounded-xl font-bold text-sm md:text-base hover:bg-orange-100 transition-colors">
-                   Top Up Wallet
-                 </button>
-               </Link>
+               <Link href="/wallet" className="w-full"><button className="w-full bg-orange-50 text-orange-700 px-6 py-3 rounded-xl font-bold hover:bg-orange-100 transition-colors">Top Up Wallet</button></Link>
             </motion.div>
         </div>
 
         {/* 2. SMART MEAL CALENDAR */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-white rounded-2xl md:rounded-3xl p-4 md:p-8 shadow-sm border border-gray-100">
-           <div className="flex flex-col sm:flex-row justify-between items-center mb-4 md:mb-6 gap-3 sm:gap-0">
-              <h3 className="text-lg md:text-xl font-bold text-gray-900 self-start sm:self-auto">Meal Calendar</h3>
-              <div className="flex items-center gap-2 md:gap-4 bg-gray-50 md:bg-transparent rounded-full md:rounded-none p-1 md:p-0">
-                 <button onClick={() => changeMonth(-1)} className="p-2 md:p-2 hover:bg-gray-200 md:hover:bg-gray-100 rounded-full"><ChevronLeft size={18} className="md:w-5 md:h-5"/></button>
-                 <span className="font-bold text-sm md:text-lg w-28 md:w-32 text-center">{monthNames[month]} {year}</span>
-                 <button onClick={() => changeMonth(1)} className="p-2 md:p-2 hover:bg-gray-200 md:hover:bg-gray-100 rounded-full"><ChevronRight size={18} className="md:w-5 md:h-5"/></button>
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100">
+           <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold text-gray-900">Meal Calendar</h3>
+              <div className="flex items-center gap-4">
+                 <button onClick={() => changeMonth(-1)} className="p-2 hover:bg-gray-100 rounded-full"><ChevronLeft size={20}/></button>
+                 <span className="font-bold text-lg w-32 text-center">{monthNames[month]} {year}</span>
+                 <button onClick={() => changeMonth(1)} className="p-2 hover:bg-gray-100 rounded-full"><ChevronRight size={20}/></button>
               </div>
            </div>
            
-           <div className="flex gap-2 md:gap-4 mb-4 md:mb-6 text-[10px] md:text-xs font-bold text-gray-500 justify-start flex-wrap">
-              <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-green-500"></span> Delivered</div>
-              <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span> Scheduled</div>
-              <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-red-400"></span> Paused</div>
-              <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-gray-200"></span> No Credits</div>
+           <div className="flex gap-4 mb-6 text-xs font-bold text-gray-500 justify-center md:justify-start flex-wrap">
+              <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-green-500"></span> Delivered</div>
+              <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-blue-500"></span> Scheduled</div>
+              <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-red-400"></span> Paused</div>
+              <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-gray-200"></span> No Credits</div>
            </div>
 
-           <div className="grid grid-cols-7 gap-1 md:gap-2 text-center mb-2">
-              {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => <div key={d} className="text-[10px] md:text-xs font-bold text-gray-400 uppercase">{d}</div>)}
+           <div className="grid grid-cols-7 gap-2 text-center mb-2">
+              {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => <div key={d} className="text-xs font-bold text-gray-400 uppercase">{d}</div>)}
            </div>
            
-           <div className="grid grid-cols-7 gap-1 md:gap-2">
+           <div className="grid grid-cols-7 gap-2">
               {/* Empty slots */}
               {Array.from({ length: firstDay }).map((_, i) => <div key={`empty-${i}`} />)}
               
@@ -264,7 +260,7 @@ export default function ProfilePage() {
                   if (isPast) {
                       if (hasOrder) {
                           bgClass = "bg-green-100 text-green-700 border border-green-200";
-                          content = <div className="flex flex-col items-center"><span>{day}</span><CheckCircle size={10} className="md:w-3 md:h-3 mt-0.5" /></div>;
+                          content = <div className="flex flex-col items-center"><span>{day}</span><CheckCircle size={12} /></div>;
                       } else {
                           bgClass = "bg-gray-100 text-gray-400 opacity-50"; 
                       }
@@ -274,16 +270,16 @@ export default function ProfilePage() {
                           bgClass = "bg-white text-gray-300"; // Weekend style
                       } else if (isPaused) {
                           bgClass = "bg-red-50 text-red-500 border border-red-200 cursor-pointer hover:bg-red-100";
-                          content = <div className="flex flex-col items-center"><span>{day}</span><span className="text-[7px] md:text-[9px] font-bold mt-0.5">SKIP</span></div>;
+                          content = <div className="flex flex-col items-center"><span>{day}</span><span className="text-[9px] font-bold">SKIP</span></div>;
                       } else if (isScheduled) {
                           // HAS CREDITS
                           bgClass = "bg-blue-50 text-blue-600 border border-blue-100 cursor-pointer hover:bg-blue-100";
                           const label = activePlan.includes("Lunch + Dinner") ? "2 MEALS" : "MEAL";
-                          content = <div className="flex flex-col items-center"><span>{day}</span><span className="text-[7px] md:text-[9px] font-bold mt-0.5">{label}</span></div>;
+                          content = <div className="flex flex-col items-center"><span>{day}</span><span className="text-[9px] font-bold">{label}</span></div>;
                       } else if (isAutoOrderActive) {
                           // NO CREDITS (Runway ended)
                           bgClass = "bg-gray-100 text-gray-400 border border-gray-200 cursor-pointer hover:bg-gray-200";
-                          content = <div className="flex flex-col items-center"><span>{day}</span><span className="text-[7px] md:text-[8px] font-bold mt-0.5 leading-tight">NO<br/>CREDIT</span></div>;
+                          content = <div className="flex flex-col items-center"><span>{day}</span><span className="text-[8px] font-bold">NO CREDIT</span></div>;
                       }
                   }
 
@@ -291,7 +287,7 @@ export default function ProfilePage() {
                       <div 
                         key={day} 
                         onClick={() => !isPast && !isWeekend && togglePauseDate(day)}
-                        className={`h-12 md:h-16 rounded-lg md:rounded-xl flex items-center justify-center text-xs md:text-sm font-bold transition-all ${bgClass}`}
+                        className={`h-16 rounded-xl flex items-center justify-center text-sm font-bold transition-all ${bgClass}`}
                       >
                          {content}
                       </div>
@@ -301,28 +297,28 @@ export default function ProfilePage() {
         </motion.div>
 
         {/* 3. PERSONAL DETAILS */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="bg-white rounded-2xl md:rounded-3xl p-5 md:p-8 shadow-sm border border-gray-100">
-          <form onSubmit={handleUpdateProfile} className="space-y-5 md:space-y-6">
-            <h3 className="text-lg md:text-xl font-bold text-gray-900 border-b pb-3 md:pb-4">Personal Details</h3>
-            <div className="grid md:grid-cols-2 gap-4 md:gap-6">
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100">
+          <form onSubmit={handleUpdateProfile} className="space-y-6">
+            <h3 className="text-xl font-bold text-gray-900 border-b pb-4">Personal Details</h3>
+            <div className="grid md:grid-cols-2 gap-6">
                <div className="opacity-60 cursor-not-allowed">
-                  <label className="block text-[10px] md:text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Full Name</label>
-                  <input type="text" value={formData.fullName} disabled className="w-full p-2.5 md:p-3 text-sm md:text-base bg-gray-100 border rounded-xl font-bold text-gray-600" />
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Full Name</label>
+                  <input type="text" value={formData.fullName} disabled className="w-full p-3 bg-gray-100 border rounded-xl font-bold text-gray-600" />
                </div>
                <div className="opacity-60 cursor-not-allowed">
-                  <label className="block text-[10px] md:text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Phone</label>
-                  <input type="text" value={formData.phone} disabled className="w-full p-2.5 md:p-3 text-sm md:text-base bg-gray-100 border rounded-xl font-bold text-gray-600" />
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Phone</label>
+                  <input type="text" value={formData.phone} disabled className="w-full p-3 bg-gray-100 border rounded-xl font-bold text-gray-600" />
                </div>
                <div className="opacity-60 cursor-not-allowed md:col-span-2">
-                  <label className="block text-[10px] md:text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Email</label>
-                  <input type="text" value={formData.email} disabled className="w-full p-2.5 md:p-3 text-sm md:text-base bg-gray-100 border rounded-xl font-bold text-gray-600" />
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Email</label>
+                  <input type="text" value={formData.email} disabled className="w-full p-3 bg-gray-100 border rounded-xl font-bold text-gray-600" />
                </div>
             </div>
             {/* Editable Fields */}
-            <div className="grid md:grid-cols-2 gap-4 md:gap-6 pt-4 border-t">
+            <div className="grid md:grid-cols-2 gap-6 pt-4 border-t">
                 <div>
-                   <label className="block text-[10px] md:text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Office Location</label>
-                   <select value={formData.office} onChange={(e) => setFormData({...formData, office: e.target.value})} className="w-full p-3 text-sm md:text-base border rounded-xl font-bold text-gray-900 bg-white">
+                   <label className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Office Location</label>
+                   <select value={formData.office} onChange={(e) => setFormData({...formData, office: e.target.value})} className="w-full p-3 border rounded-xl font-bold text-gray-900 bg-white">
                          <option value="DLF 1">DLF 1 (Newtown)</option>
                          <option value="Ecospace">Ecospace Business Park</option>
                          <option value="Candor">Candor TechSpace</option>
@@ -331,16 +327,16 @@ export default function ProfilePage() {
                    </select>
                 </div>
                 <div>
-                   <label className="block text-[10px] md:text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Diet</label>
-                   <select value={formData.diet} onChange={(e) => setFormData({...formData, diet: e.target.value})} className="w-full p-3 text-sm md:text-base border rounded-xl font-bold text-gray-900 bg-white">
+                   <label className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Diet</label>
+                   <select value={formData.diet} onChange={(e) => setFormData({...formData, diet: e.target.value})} className="w-full p-3 border rounded-xl font-bold text-gray-900 bg-white">
                          <option value="Veg">Veg</option>
                          <option value="Non-Veg">Non-Veg</option>
                          <option value="Flexi">Flexi</option>
                    </select>
                 </div>
                 <div>
-                   <label className="block text-[10px] md:text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Gender</label>
-                   <select value={formData.gender} onChange={(e) => setFormData({...formData, gender: e.target.value})} className="w-full p-3 text-sm md:text-base border rounded-xl font-bold text-gray-900 bg-white">
+                   <label className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Gender</label>
+                   <select value={formData.gender} onChange={(e) => setFormData({...formData, gender: e.target.value})} className="w-full p-3 border rounded-xl font-bold text-gray-900 bg-white">
                          <option value="">Select</option>
                          <option value="Male">Male</option>
                          <option value="Female">Female</option>
@@ -348,12 +344,12 @@ export default function ProfilePage() {
                    </select>
                 </div>
                 <div>
-                   <label className="block text-[10px] md:text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Date of Birth</label>
-                   <input type="date" value={formData.dob} onChange={(e) => setFormData({...formData, dob: e.target.value})} className="w-full p-3 text-sm md:text-base border rounded-xl font-bold text-gray-900" />
+                   <label className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Date of Birth</label>
+                   <input type="date" value={formData.dob} onChange={(e) => setFormData({...formData, dob: e.target.value})} className="w-full p-3 border rounded-xl font-bold text-gray-900" />
                 </div>
             </div>
-            <button type="submit" disabled={saving} className="w-full bg-orange-600 text-white py-3.5 md:py-4 mt-2 rounded-xl font-bold text-base md:text-lg shadow-lg hover:bg-orange-700 transition flex items-center justify-center gap-2">
-               {saving ? <Loader2 className="animate-spin" /> : <><Save size={18} className="md:w-5 md:h-5" /> Save Changes</>}
+            <button type="submit" disabled={saving} className="w-full bg-orange-600 text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:bg-orange-700 transition flex items-center justify-center gap-2">
+               {saving ? <Loader2 className="animate-spin" /> : <><Save size={20} /> Save Changes</>}
             </button>
           </form>
         </motion.div>
