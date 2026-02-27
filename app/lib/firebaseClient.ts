@@ -1,19 +1,21 @@
-import { initializeApp, getApps } from "firebase/app";
-import { getAuth } from "firebase/auth";
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
 
-// Replace these with your actual Firebase project configuration
-// from the Firebase Console (Project Settings > General > Your Apps)
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_AUTH_DOMAIN",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_STORAGE_BUCKET",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyBze4S5JI5wIayDFOM5PTmdAEdW5mnPbbE",
+  authDomain: "bowlit-app-f8b5f.firebaseapp.com",
+  projectId: "bowlit-app-f8b5f",
+  storageBucket: "bowlit-app-f8b5f.firebasestorage.app",
+  messagingSenderId: "576952120280",
+  appId: "1:576952120280:web:66903c58882111844a38ad",
+  measurementId: "G-6XLQK88835"
 };
 
-// Initialize Firebase only if it hasn't been initialized already
-const firebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-const firebaseAuth = getAuth(firebaseApp);
-
-export { firebaseAuth };
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
