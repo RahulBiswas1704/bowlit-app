@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bell, BellOff } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 
 export default function NotificationManager() {
@@ -20,7 +19,7 @@ export default function NotificationManager() {
         setUserId(session.user.id);
       }
     };
-    
+
     fetchUser();
 
     // Listen for logins/logouts
@@ -55,15 +54,15 @@ export default function NotificationManager() {
           const newStatus = payload.new.status;
 
           if (oldStatus !== newStatus && newStatus) {
-             // Send the real push notification!
-             if ('serviceWorker' in navigator) {
-               navigator.serviceWorker.ready.then((registration) => {
-                 registration.showNotification("BowlIt Order Update 🍲", {
-                   body: `Your order is now: ${newStatus.toUpperCase()}`,
-                   icon: "/logo1.svg"
-                 });
-               });
-             }
+            // Send the real push notification!
+            if ('serviceWorker' in navigator) {
+              navigator.serviceWorker.ready.then((registration) => {
+                registration.showNotification("BowlIt Order Update 🍲", {
+                  body: `Your order is now: ${newStatus.toUpperCase()}`,
+                  icon: "/logo1.svg"
+                });
+              });
+            }
           }
         }
       )
@@ -74,53 +73,5 @@ export default function NotificationManager() {
     };
   }, [permission, userId]);
 
-  // --- MANUAL TESTING BUTTON LOGIC BELOW ---
-
-  const requestPermission = async () => {
-    if (!("Notification" in window)) {
-      alert("This browser does not support notifications.");
-      return;
-    }
-    
-    const perm = await Notification.requestPermission();
-    setPermission(perm);
-    
-    if (perm === "granted") {
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.ready.then((registration) => {
-          registration.showNotification("Notifications Enabled! 🎉", {
-            body: "You will now receive automatic updates about your BowlIt orders.",
-            icon: "/logo1.svg"
-          });
-        });
-      }
-    }
-  };
-
-  const testNotification = () => {
-    if (permission === "granted") {
-      if ('serviceWorker' in navigator) {
-         navigator.serviceWorker.ready.then((registration) => {
-           registration.showNotification("BowlIt Update 🍲", {
-             body: "This is a manual test! The real ones will happen automatically now.",
-             icon: "/logo1.svg"
-           });
-         });
-      }
-    } else {
-      requestPermission();
-    }
-  };
-
-  return (
-    <div className="fixed bottom-24 right-4 z-[9999]">
-       <button
-         onClick={testNotification}
-         className="bg-orange-600 text-white p-3 rounded-full shadow-lg hover:bg-orange-500 transition-all flex items-center justify-center border-2 border-white"
-         title={permission === "granted" ? "Test Notification" : "Enable Notifications"}
-       >
-         {permission === "granted" ? <Bell size={24} /> : <BellOff size={24} />}
-       </button>
-    </div>
-  );
+  return null; // Headless component, no UI
 }

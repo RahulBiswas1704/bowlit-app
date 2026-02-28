@@ -6,6 +6,8 @@ import Footer from "./components/Footer";
 import InstallBanner from "./components/InstallBanner";
 import NotificationManager from "./components/NotificationManager";
 import SplashScreen from "./components/SplashScreen";
+import { PushProvider } from "./components/PushProvider";
+import PhonePromptModal from "./components/PhonePromptModal";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -40,25 +42,29 @@ export default function RootLayout({
       <head>
         {/* LEAFLET MAP CSS (Required for the Free Map) */}
         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-     crossOrigin=""/>
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+          crossOrigin="" />
       </head>
       <body className={inter.className}>
+        <PushProvider />
         <SplashScreen />
         <CartProvider>
           <div className="flex flex-col min-h-screen">
-             <main className="flex-grow">
-                {children}
-             </main>
-             <Footer />
+            <main className="flex-grow">
+              {children}
+            </main>
+            <Footer />
           </div>
-          
+
           {/* PWA Install Banner */}
           <InstallBanner />
-          
+
           {/* Push Notification Manager */}
           <NotificationManager />
-          
+
+          {/* Post-Login Phone Collection */}
+          <PhonePromptModal />
+
         </CartProvider>
       </body>
     </html>

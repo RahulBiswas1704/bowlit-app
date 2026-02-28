@@ -3,8 +3,9 @@ import DesktopHomePage from "./components/home/DesktopHomePage";
 import MobileHomePage from "./components/home/MobileHomePage";
 import { supabase } from "./lib/supabaseClient";
 
-// Force dynamic rendering so it fetches fresh data every time
-export const dynamic = 'force-dynamic';
+// Use Incremental Static Regeneration (ISR) to cache the page for 1 hour
+// This prevents hitting the database on every single page load
+export const revalidate = 3600;
 
 // HELPER: Calculate if it's Week 1 (Odd) or Week 2 (Even)
 function getCurrentWeekNumber() {
@@ -48,7 +49,7 @@ export default async function HomePage() {
   return (
     <div className="min-h-screen">
       <Navbar />
-      
+
       {/* MOBILE VIEW */}
       <div className="block md:hidden">
         <MobileHomePage plans={safePlans} weeklyMenu={safeMenu} addOns={safeAddOns} />

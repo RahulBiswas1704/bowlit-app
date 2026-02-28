@@ -5,13 +5,13 @@ import { supabase } from "../lib/supabaseClient";
 
 // --- TYPES ---
 type Rider = { id: number; name: string; phone: string; };
-type Order = { id: number; customer_name: string; customer_phone: string; address: string; total_amount: number; status: string; items: any[]; created_at: string; };
+type Order = { id: number; customer_name: string; customer_phone: string; address: string; total_amount: number; status: string; items: any[]; created_at: string; customer_latitude?: number; customer_longitude?: number; building_name?: string; delivery_instructions?: string; };
 
 export default function RiderPanel() {
   const [rider, setRider] = useState<Rider | null>(null);
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
-  
+
   // Data States
   const [orders, setOrders] = useState<Order[]>([]);
   const [stats, setStats] = useState({
@@ -19,7 +19,7 @@ export default function RiderPanel() {
     totalDelivered: 0,
     pending: 0
   });
-  
+
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -44,7 +44,7 @@ export default function RiderPanel() {
     const channel = supabase
       .channel('rider-dashboard')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
-          refreshAllData(riderPhone);
+        refreshAllData(riderPhone);
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -64,7 +64,7 @@ export default function RiderPanel() {
       .eq('rider_phone', riderPhone)
       .neq('status', 'Completed')
       .order('created_at', { ascending: false });
-    
+
     setOrders(data || []);
     setRefreshing(false);
   };
@@ -157,37 +157,37 @@ export default function RiderPanel() {
               <p className="text-sm text-green-400 font-mono">Online</p>
             </div>
           </div>
-          <button onClick={handleLogout} className="p-3 bg-gray-800 rounded-xl hover:bg-red-900 transition-colors"><LogOut size={20}/></button>
+          <button onClick={handleLogout} className="p-3 bg-gray-800 rounded-xl hover:bg-red-900 transition-colors"><LogOut size={20} /></button>
         </div>
 
         {/* MAIN STATS CARD (Earnings Removed) */}
         <div className="flex gap-4">
-            <div className="flex-1 bg-gray-800 p-4 rounded-2xl border border-gray-700">
-                <p className="text-gray-400 text-xs font-bold uppercase mb-1">Total Delivered</p>
-                <div className="flex items-center gap-2">
-                    <CheckSquare className="text-orange-400" size={20}/>
-                    <span className="text-2xl font-bold">{stats.totalDelivered}</span>
-                </div>
+          <div className="flex-1 bg-gray-800 p-4 rounded-2xl border border-gray-700">
+            <p className="text-gray-400 text-xs font-bold uppercase mb-1">Total Delivered</p>
+            <div className="flex items-center gap-2">
+              <CheckSquare className="text-orange-400" size={20} />
+              <span className="text-2xl font-bold">{stats.totalDelivered}</span>
             </div>
+          </div>
         </div>
       </header>
 
       {/* FLOATING STATS ROW */}
       <div className="px-6 -mt-16 relative z-20 mb-6">
         <div className="bg-white p-4 rounded-2xl shadow-lg border border-gray-100 flex justify-between">
-            <div className="text-center flex-1 border-r border-gray-100">
-                <p className="text-xs text-gray-400 font-bold uppercase mb-1">Today</p>
-                <p className="text-xl font-bold text-gray-900">{stats.todayCount}</p>
-            </div>
-            <div className="text-center flex-1 border-r border-gray-100">
-                <p className="text-xs text-gray-400 font-bold uppercase mb-1">Pending</p>
-                <p className="text-xl font-bold text-orange-600">{stats.pending}</p>
-            </div>
-             <div className="text-center flex-1 flex items-center justify-center">
-                <button onClick={() => refreshAllData(rider.phone)} className="p-2 bg-gray-50 rounded-full hover:bg-gray-200 transition">
-                    <RefreshCw size={20} className={`text-gray-600 ${refreshing ? "animate-spin" : ""}`} />
-                </button>
-            </div>
+          <div className="text-center flex-1 border-r border-gray-100">
+            <p className="text-xs text-gray-400 font-bold uppercase mb-1">Today</p>
+            <p className="text-xl font-bold text-gray-900">{stats.todayCount}</p>
+          </div>
+          <div className="text-center flex-1 border-r border-gray-100">
+            <p className="text-xs text-gray-400 font-bold uppercase mb-1">Pending</p>
+            <p className="text-xl font-bold text-orange-600">{stats.pending}</p>
+          </div>
+          <div className="text-center flex-1 flex items-center justify-center">
+            <button onClick={() => refreshAllData(rider.phone)} className="p-2 bg-gray-50 rounded-full hover:bg-gray-200 transition">
+              <RefreshCw size={20} className={`text-gray-600 ${refreshing ? "animate-spin" : ""}`} />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -196,49 +196,80 @@ export default function RiderPanel() {
         <h2 className="font-bold text-gray-500 uppercase text-xs tracking-wider mb-2">Current Tasks</h2>
 
         {orders.length === 0 ? (
-            <div className="text-center py-10">
-                <div className="bg-white w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm">
-                    <Package size={24} className="text-gray-300"/>
-                </div>
-                <p className="text-gray-400 font-bold text-sm">No active tasks</p>
+          <div className="text-center py-10">
+            <div className="bg-white w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm">
+              <Package size={24} className="text-gray-300" />
             </div>
+            <p className="text-gray-400 font-bold text-sm">No active tasks</p>
+          </div>
         ) : (
-            orders.map(order => (
-                <div key={order.id} className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 relative overflow-hidden">
-                    <div className="absolute top-0 right-0 bg-orange-50 text-orange-700 text-[10px] font-bold px-3 py-1 rounded-bl-xl uppercase tracking-wide">
-                        {order.status}
-                    </div>
-                    
-                    <div className="mb-4">
-                        <p className="text-xs font-bold text-gray-400 mb-1">#{order.id} • {new Date(order.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
-                        <h3 className="font-bold text-lg text-gray-900">{order.customer_name}</h3>
-                    </div>
+          orders.map(order => (
+            <div key={order.id} className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 relative overflow-hidden">
+              <div className="absolute top-0 right-0 bg-orange-50 text-orange-700 text-[10px] font-bold px-3 py-1 rounded-bl-xl uppercase tracking-wide">
+                {order.status}
+              </div>
 
-                    <div className="bg-gray-50 p-3 rounded-2xl flex gap-3 mb-4">
-                        <MapPin className="text-gray-400 mt-1 flex-shrink-0" size={16}/>
-                        <p className="text-sm font-medium text-gray-700 leading-relaxed">{order.address}</p>
-                    </div>
+              <div className="mb-4">
+                <p className="text-xs font-bold text-gray-400 mb-1">#{order.id} • {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                <h3 className="font-bold text-lg text-gray-900">{order.customer_name}</h3>
+              </div>
 
-                    <div className="flex items-center justify-between mb-6 px-1">
-                        <div className="flex items-center gap-2">
-                             <div className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold">Cash</div>
-                             <span className="font-bold text-xl">₹{order.total_amount}</span>
-                        </div>
-                    </div>
-
-                    <div className="flex gap-2">
-                        <a href={`tel:${order.customer_phone}`} className="bg-black text-white p-4 rounded-xl flex items-center justify-center">
-                            <Phone size={20}/>
-                        </a>
-                        <button 
-                            onClick={() => markDelivered(order.id)} 
-                            className="flex-1 bg-green-600 text-white font-bold text-sm rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-green-200"
-                        >
-                           <CheckCircle size={18}/> Mark Delivered
-                        </button>
-                    </div>
+              <div className="bg-gray-50 p-3 rounded-2xl mb-4">
+                <div className="flex gap-3 mb-2">
+                  <MapPin className="text-gray-400 mt-1 flex-shrink-0" size={16} />
+                  <div>
+                    {order.building_name && <p className="font-bold text-sm text-gray-900">{order.building_name}</p>}
+                    <p className="text-sm font-medium text-gray-700 leading-relaxed">{order.address}</p>
+                  </div>
                 </div>
-            ))
+                {order.delivery_instructions && (
+                  <div className="mt-2 pt-2 border-t border-gray-200">
+                    <p className="text-xs font-bold text-orange-600 uppercase mb-1">Instructions:</p>
+                    <p className="text-sm text-gray-600 italic">"{order.delivery_instructions}"</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between mb-6 px-1">
+                <div className="flex items-center gap-2">
+                  <div className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold">Cash</div>
+                  <span className="font-bold text-xl">₹{order.total_amount}</span>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                {/* FIRST ROW: CALL & NAVIGATE */}
+                <div className="flex gap-2">
+                  <a href={`tel:${order.customer_phone}`} className="flex-1 bg-gray-100 text-gray-900 p-4 rounded-xl flex items-center justify-center gap-2 font-bold text-sm hover:bg-gray-200 transition">
+                    <Phone size={18} /> Call
+                  </a>
+
+                  {order.customer_latitude && order.customer_longitude ? (
+                    <a
+                      href={`https://www.google.com/maps/dir/?api=1&destination=${order.customer_latitude},${order.customer_longitude}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-[2] bg-blue-600 text-white font-bold text-sm rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-blue-200 hover:bg-blue-700 transition"
+                    >
+                      <MapPin size={18} /> Navigate (GPS)
+                    </a>
+                  ) : (
+                    <div className="flex-[2] bg-gray-50 border border-gray-200 text-gray-400 font-bold text-xs rounded-xl flex items-center justify-center gap-2 text-center p-2">
+                      No GPS Pin
+                    </div>
+                  )}
+                </div>
+
+                {/* SECOND ROW: DELIVER */}
+                <button
+                  onClick={() => markDelivered(order.id)}
+                  className="w-full bg-green-600 text-white p-4 font-bold text-sm rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-green-200 hover:bg-green-700 transition"
+                >
+                  <CheckCircle size={18} /> Mark Delivered & Collected
+                </button>
+              </div>
+            </div>
+          ))
         )}
       </div>
     </div>
