@@ -1,8 +1,9 @@
 {
-  "/api/admin/settings/route": "app/api/admin/settings/route.js",
+  "/page": "app/page.js",
   "/admin/page": "app/admin/page.js",
-  "/icon.svg/route": "app/icon.svg/route.js",
-  "/profile/page": "app/profile/page.js",
+  "/rider/page": "app/rider/page.js",
   "/api/admin/users/route": "app/api/admin/users/route.js",
-  "/page": "app/page.js"
+  "/icon.svg/route": "app/icon.svg/route.js",
+  "/api/admin/settings/route": "app/api/admin/settings/route.js",
+  "/profile/page": "app/profile/page.js"
 }

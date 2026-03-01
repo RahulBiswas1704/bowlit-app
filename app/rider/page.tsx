@@ -17,8 +17,12 @@ export default function RiderPanel() {
   const [stats, setStats] = useState({
     todayCount: 0,
     totalDelivered: 0,
-    pending: 0
+    pending: 0,
+    todayEarnings: 0
   });
+
+  const [otpInputs, setOtpInputs] = useState<{ [key: number]: string }>({});
+  const [capturedPhotos, setCapturedPhotos] = useState<{ [key: number]: string }>({}); // Photo Previews
 
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -87,12 +91,16 @@ export default function RiderPanel() {
     if (completed) {
       // Calculate Today's Orders
       const todayDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-      const todayCount = completed.filter(o => o.created_at.startsWith(todayDate)).length;
+      const todaysOrders = completed.filter(o => o.created_at.startsWith(todayDate));
+
+      const PAYOUT_PER_DELIVERY = 40;
+      const todayEarnings = todaysOrders.length * PAYOUT_PER_DELIVERY;
 
       setStats({
-        todayCount,
+        todayCount: todaysOrders.length,
         totalDelivered: completed.length,
-        pending: pendingCount || 0
+        pending: pendingCount || 0,
+        todayEarnings
       });
     }
   };
@@ -119,10 +127,23 @@ export default function RiderPanel() {
     window.location.reload();
   };
 
-  const markDelivered = async (id: number) => {
-    if (!confirm("Confirm delivery and cash collection?")) return;
-    await supabase.from('orders').update({ status: 'Completed' }).eq('id', id);
-    // Realtime will trigger refreshAllData automatically
+  const handlePhotoCapture = (orderId: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const imageUrl = URL.createObjectURL(file);
+      setCapturedPhotos(prev => ({ ...prev, [orderId]: imageUrl }));
+    }
+  };
+
+  const markDelivered = async (orderId: number, expectedOtp: string) => {
+    const enteredOtp = otpInputs[orderId];
+    if (!enteredOtp || enteredOtp !== expectedOtp) {
+      return alert("Invalid Delivery PIN! Please ask the customer for their 4-digit PIN.");
+    }
+
+    // Optimistic UI update could go here, but Realtime handles it.
+    await supabase.from('orders').update({ status: 'Completed' }).eq('id', orderId);
+    setOtpInputs(prev => ({ ...prev, [orderId]: "" })); // Clear input
   };
 
   // --- RENDER: LOGIN ---
@@ -160,13 +181,20 @@ export default function RiderPanel() {
           <button onClick={handleLogout} className="p-3 bg-gray-800 rounded-xl hover:bg-red-900 transition-colors"><LogOut size={20} /></button>
         </div>
 
-        {/* MAIN STATS CARD (Earnings Removed) */}
+        {/* MAIN STATS CARD */}
         <div className="flex gap-4">
           <div className="flex-1 bg-gray-800 p-4 rounded-2xl border border-gray-700">
             <p className="text-gray-400 text-xs font-bold uppercase mb-1">Total Delivered</p>
             <div className="flex items-center gap-2">
               <CheckSquare className="text-orange-400" size={20} />
               <span className="text-2xl font-bold">{stats.totalDelivered}</span>
+            </div>
+          </div>
+          <div className="flex-1 bg-orange-900/30 p-4 rounded-2xl border border-orange-800">
+            <p className="text-orange-400 text-xs font-bold uppercase mb-1">Today's Earnings</p>
+            <div className="flex items-center gap-2">
+              <span className="text-xl font-bold text-orange-400">₹</span>
+              <span className="text-2xl font-bold text-white">{stats.todayEarnings}</span>
             </div>
           </div>
         </div>
@@ -238,6 +266,40 @@ export default function RiderPanel() {
               </div>
 
               <div className="flex flex-col gap-2">
+                {/* CONTACTLESS DELIVERY PHOTO REQUIREMENT */}
+                {(() => {
+                  const ins = order.delivery_instructions?.toLowerCase() || "";
+                  const needsPhoto = ins.includes("leave") || ins.includes("door") || ins.includes("contact");
+                  const hasPhoto = !!capturedPhotos[order.id];
+
+                  if (needsPhoto) {
+                    return (
+                      <div className={`p-4 rounded-xl border-2 border-dashed mb-2 ${hasPhoto ? 'border-green-500 bg-green-50' : 'border-orange-300 bg-orange-50/50'}`}>
+                        <div className="flex justify-between items-center mb-2">
+                          <div>
+                            <p className={`text-xs font-bold uppercase ${hasPhoto ? 'text-green-700' : 'text-orange-600'}`}>Contactless Drop-off</p>
+                            <p className="text-xs text-gray-600 font-medium">Please capture a photo of the package at the door.</p>
+                          </div>
+                        </div>
+
+                        {hasPhoto ? (
+                          <div className="relative w-full h-32 rounded-lg overflow-hidden border border-green-200">
+                            <img src={capturedPhotos[order.id]} alt="Proof of delivery" className="w-full h-full object-cover" />
+                            <div className="absolute top-2 right-2 bg-green-500 text-white rounded-full p-1"><CheckCircle size={16} /></div>
+                            <button onClick={() => setCapturedPhotos(prev => ({ ...prev, [order.id]: "" }))} className="absolute bottom-2 right-2 bg-black/50 text-white text-[10px] px-2 py-1 rounded-md backdrop-blur-sm">Retake</button>
+                          </div>
+                        ) : (
+                          <label className="flex items-center justify-center gap-2 w-full bg-white border border-orange-200 text-orange-600 font-bold py-3 rounded-xl cursor-pointer hover:bg-orange-100 transition shadow-sm">
+                            <Package size={18} /> Take Photo
+                            <input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => handlePhotoCapture(order.id, e)} />
+                          </label>
+                        )}
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+
                 {/* FIRST ROW: CALL & NAVIGATE */}
                 <div className="flex gap-2">
                   <a href={`tel:${order.customer_phone}`} className="flex-1 bg-gray-100 text-gray-900 p-4 rounded-xl flex items-center justify-center gap-2 font-bold text-sm hover:bg-gray-200 transition">
@@ -260,13 +322,33 @@ export default function RiderPanel() {
                   )}
                 </div>
 
-                {/* SECOND ROW: DELIVER */}
-                <button
-                  onClick={() => markDelivered(order.id)}
-                  className="w-full bg-green-600 text-white p-4 font-bold text-sm rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-green-200 hover:bg-green-700 transition"
-                >
-                  <CheckCircle size={18} /> Mark Delivered & Collected
-                </button>
+                {/* SECOND ROW: DELIVER OTP */}
+                <div className="bg-gray-50 border border-gray-200 p-3 rounded-xl flex flex-col gap-2">
+                  <div className="flex items-center gap-3 w-full">
+                    <input
+                      type="text"
+                      placeholder="Enter 4-Digit PIN..."
+                      maxLength={4}
+                      className="flex-[1.5] bg-white border border-gray-300 p-3 rounded-lg text-center font-black tracking-widest text-lg outline-none focus:border-green-500 transition-colors"
+                      value={otpInputs[order.id] || ""}
+                      onChange={(e) => setOtpInputs({ ...otpInputs, [order.id]: e.target.value.replace(/\D/g, '') })}
+                    />
+                    <button
+                      onClick={() => markDelivered(order.id, order.customer_phone.slice(-4))}
+                      disabled={
+                        !otpInputs[order.id] ||
+                        otpInputs[order.id].length !== 4 ||
+                        ((order.delivery_instructions?.toLowerCase().includes("leave") || order.delivery_instructions?.toLowerCase().includes("door") || order.delivery_instructions?.toLowerCase().includes("contact")) && !capturedPhotos[order.id])
+                      }
+                      className="flex-[1] bg-green-600 text-white p-3 h-full font-bold text-sm rounded-lg flex items-center justify-center gap-2 shadow-sm hover:bg-green-700 transition disabled:opacity-50 whitespace-nowrap"
+                    >
+                      <CheckCircle size={18} className="hidden sm:block" /> Deliver
+                    </button>
+                  </div>
+                  {((order.delivery_instructions?.toLowerCase().includes("leave") || order.delivery_instructions?.toLowerCase().includes("door") || order.delivery_instructions?.toLowerCase().includes("contact")) && !capturedPhotos[order.id]) && (
+                    <p className="text-[10px] text-red-500 font-bold text-center tracking-wide">Photo required before delivery constraint</p>
+                  )}
+                </div>
               </div>
             </div>
           ))

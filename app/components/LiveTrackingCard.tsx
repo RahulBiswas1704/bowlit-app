@@ -132,8 +132,6 @@ export function LiveTrackingCard({ userId }: { userId: string }) {
                         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">On the Menu</p>
                         <div className="flex gap-4">
                             <div>
-                                {/* Assuming the order items array has the user's plan type so we know which dish to show, 
-                                     or we just display the base meal for now */}
                                 <p className="font-bold text-gray-900 text-sm whitespace-pre-wrap">{todaysMenu.lunch_dish.split(',').join('\n')}</p>
                                 <p className="font-bold text-orange-600 text-sm mt-1">{todaysMenu.veg_dish} / {todaysMenu.non_veg_dish}</p>
                             </div>
@@ -141,21 +139,32 @@ export function LiveTrackingCard({ userId }: { userId: string }) {
                     </div>
                 )}
 
-                {/* RIDER INFO */}
+                {/* RIDER INFO & OTP */}
                 {currentStepIndex >= 1 && rider ? (
-                    <div className="p-4 flex items-center justify-between bg-orange-50/50">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center text-orange-600">
-                                <Bike size={20} />
+                    <div>
+                        <div className="p-4 flex items-center justify-between bg-orange-50/50 border-b border-gray-100">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center text-orange-600">
+                                    <Bike size={20} />
+                                </div>
+                                <div>
+                                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Your Rider</p>
+                                    <p className="font-bold text-gray-900">{rider.name}</p>
+                                </div>
                             </div>
-                            <div>
-                                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Your Rider</p>
-                                <p className="font-bold text-gray-900">{rider.name}</p>
-                            </div>
+                            <a href={`tel:${rider.phone}`} className="bg-black text-white p-3 rounded-xl shadow-md hover:bg-gray-800 transition">
+                                <Phone size={18} />
+                            </a>
                         </div>
-                        <a href={`tel:${rider.phone}`} className="bg-black text-white p-3 rounded-xl shadow-md hover:bg-gray-800 transition">
-                            <Phone size={18} />
-                        </a>
+
+                        {/* OTP VERIFICATION BLOCK */}
+                        <div className="p-4 bg-gray-900 text-center flex flex-col items-center justify-center">
+                            <p className="text-gray-400 text-[10px] font-bold uppercase tracking-widest mb-1">Delivery PIN</p>
+                            <div className="tracking-[0.5em] text-3xl font-black text-white ml-2">
+                                {activeOrder.customer_phone.slice(-4)}
+                            </div>
+                            <p className="text-gray-500 text-xs mt-2">Share this with {rider.name} at the door</p>
+                        </div>
                     </div>
                 ) : (
                     <div className="p-4 text-center">
