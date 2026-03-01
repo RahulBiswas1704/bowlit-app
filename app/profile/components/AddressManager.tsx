@@ -69,14 +69,15 @@ export function AddressManager({ userId }: { userId: string }) {
         delivery_instructions: ""
     });
 
-    // Custom Map Icon (Leaflet requires this in Next.js)
+    // Custom Map Icon using pure CSS to bypass CDN blocking
     const markerIcon = useMemo(() => {
         if (typeof window !== 'undefined') {
             const L = require('leaflet');
-            return new L.Icon({
-                iconUrl: 'https://cdn-icons-png.flaticon.com/512/2838/2838912.png',
-                iconSize: [40, 40],
-                iconAnchor: [20, 40],
+            return L.divIcon({
+                className: 'custom-pin',
+                html: `<div style="background-color: #ea580c; width: 20px; height: 20px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); border: 3px solid white; box-shadow: 0 4px 6px rgba(0,0,0,0.3);"></div>`,
+                iconSize: [24, 24],
+                iconAnchor: [12, 24],
             });
         }
         return null;
@@ -151,12 +152,17 @@ export function AddressManager({ userId }: { userId: string }) {
                 const building = address.building || address.amenity || address.shop || address.office || address.residential || "";
                 const street = address.road || address.neighbourhood || address.suburb || "";
 
-                let displayName = building ? `${building}, ${street}` : street || data.display_name.split(',').slice(0, 2).join(', ');
-                displayName = displayName.replace(/(^[,\s]+)|([,\s]+$)/g, ''); // Trim commas
+                // Grab the first 2-3 most specific parts of the OSM address line for a human-readable baseline
+                let rootAddress = data.display_name.split(',').slice(0, 2).join(',').trim();
+
+                let displayName = building ? `${building}, ${street}` : rootAddress;
+                displayName = displayName.replace(/(^[,\s]+)|([,\s]+$)/g, ''); // Trim residual commas
 
                 setFormData(prev => ({
                     ...prev,
-                    building_name: displayName
+                    building_name: displayName,
+                    // Note: We intentionally DO NOT overwrite formData.office (Floor/Unit)
+                    // because satellites cannot determine indoor altitude/unit numbers.
                 }));
             }
         } catch (err) {

@@ -5,7 +5,7 @@ import { supabaseAdmin } from '../../lib/supabaseAdminClient';
 // Configure Web Push with our VAPID keys
 // The email is required by the VAPID spec so push providers can contact us if needed
 webpush.setVapidDetails(
-    'mailto:admin@bowlit.com', // Replace with real admin email
+    'mailto:admin@bowlit.in', // Replace with real admin email
     process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY as string,
     process.env.VAPID_PRIVATE_KEY as string
 );

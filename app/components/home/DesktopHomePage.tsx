@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ChefHat, Clock, Calendar, Wallet, CheckCircle, ArrowRight, Utensils,
@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { useCart } from "../../context/CartContext";
 import Image from "next/image";
+import { supabase } from "../../lib/supabaseClient";
 
 type Plan = { id: string; name: string; base_price: number; type: string; description: string; features?: string[]; };
 type WeeklyMenu = { day_of_week: string; lunch_dish: string; veg_dish: string; non_veg_dish: string; };
@@ -21,9 +22,27 @@ interface DesktopHomeProps {
 export default function DesktopHomePage({ plans, weeklyMenu, addOns }: DesktopHomeProps) {
   const [mealTiming, setMealTiming] = useState<"lunch" | "dinner" | "combo">("lunch");
   const [duration, setDuration] = useState<7 | 14 | 28>(28);
-  const { addToCart } = useCart();
+  const { cart, addToCart } = useCart();
   const [isTrialModalOpen, setIsTrialModalOpen] = useState(false);
   const [isCustomModalOpen, setIsCustomModalOpen] = useState(false);
+  const [hasActivePlan, setHasActivePlan] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user?.user_metadata?.active_plan) {
+        setHasActivePlan(true);
+      }
+    });
+  }, []);
+
+  const handleAddOn = (item: any) => {
+    const hasSubscriptionInCart = cart.some((c: any) => c.type === "Subscription" || c.type === "Trial" || c.name?.includes("Plan"));
+    if (!hasActivePlan && !hasSubscriptionInCart) {
+      alert("Add-ons are exclusive to our active subscribers! Please add a Meal Plan to your cart first.");
+      return;
+    }
+    addToCart({ id: item.id, name: item.name, price: item.price, type: "Add-on", quantity: 1, image: item.image, description: "Add-on" });
+  };
 
   // 1. CREATE THE REF
   const plansSectionRef = useRef<HTMLDivElement>(null);
@@ -220,7 +239,7 @@ export default function DesktopHomePage({ plans, weeklyMenu, addOns }: DesktopHo
           <h3 className="text-4xl font-black mb-12">Make it a Meal <span className="text-orange-600 text-lg align-middle bg-orange-100 px-3 py-1 rounded-full ml-4">Add-ons</span></h3>
           <div className="grid grid-cols-4 gap-8">
             {addOns.map(item => (
-              <motion.div whileHover={{ y: -5 }} key={item.id} className="bg-white p-4 rounded-[2rem] border border-gray-100 hover:shadow-xl transition-all group cursor-pointer" onClick={() => addToCart({ id: item.id, name: item.name, price: item.price, type: "Add-on", quantity: 1, image: item.image, description: "Add-on" })}>
+              <motion.div whileHover={{ y: -5 }} key={item.id} className="bg-white p-4 rounded-[2rem] border border-gray-100 hover:shadow-xl transition-all group cursor-pointer" onClick={() => handleAddOn(item)}>
                 <div className="h-48 rounded-3xl bg-gray-100 mb-4 overflow-hidden relative"><Image src={item.image} alt={item.name} fill className="object-cover group-hover:scale-110 transition-transform duration-500" /><div className="absolute bottom-3 right-3 bg-white p-2 rounded-full text-orange-600 shadow-md"><PlusCircle size={20} /></div></div><h4 className="font-bold text-xl">{item.name}</h4><p className="text-orange-600 font-bold text-lg">₹{item.price}</p>
               </motion.div>
             ))}

@@ -32,15 +32,16 @@ export function LogisticsMap({ orders }: { orders: Order[] }) {
         );
     }, [orders]);
 
-    // Custom Map Icon logic
+    // Custom Map Icon logic bypassing external hotlinking blockers
     const markerIcon = useMemo(() => {
         if (typeof window !== 'undefined') {
             const L = require('leaflet');
-            return new L.Icon({
-                iconUrl: 'https://cdn-icons-png.flaticon.com/512/3014/3014520.png', // Or any custom pin
-                iconSize: [30, 30],
-                iconAnchor: [15, 30],
-                popupAnchor: [0, -30]
+            return L.divIcon({
+                className: 'custom-pin',
+                html: `<div style="background-color: #ea580c; width: 20px; height: 20px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); border: 3px solid white; box-shadow: 0 4px 6px rgba(0,0,0,0.3);"></div>`,
+                iconSize: [24, 24],
+                iconAnchor: [12, 24],
+                popupAnchor: [0, -24]
             });
         }
         return null;

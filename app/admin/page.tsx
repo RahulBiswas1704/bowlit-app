@@ -4,7 +4,7 @@ import {
   ChefHat, Plus, Trash2, Loader2, LogOut,
   ShoppingBag, Utensils, Clock,
   LayoutDashboard, CreditCard, Bike, UserPlus, XCircle, MapPin,
-  Calendar, Edit3, Save, Users, TrendingUp, IndianRupee, Bell, Settings
+  Calendar, Edit3, Save, Users, TrendingUp, IndianRupee, Bell, Settings, Megaphone, Send
 } from "lucide-react";
 
 import { supabaseAdmin as supabase } from "../lib/supabaseAdminClient";
@@ -76,7 +76,7 @@ function AdminLogin({ onLoginSuccess }: { onLoginSuccess: () => void }) {
 
 // --- DASHBOARD ---
 function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState<'overview' | 'revenue' | 'logistics' | 'orders' | 'customers' | 'menu' | 'fleet' | 'zones' | 'plans' | 'weekly'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'revenue' | 'logistics' | 'orders' | 'customers' | 'menu' | 'fleet' | 'zones' | 'plans' | 'weekly' | 'broadcasts'>('overview');
   const [loading, setLoading] = useState(false);
 
   // Data State
@@ -99,6 +99,11 @@ function AdminDashboard() {
   const [isAddingRider, setIsAddingRider] = useState(false);
   const [topUpModal, setTopUpModal] = useState<{ isOpen: boolean, customerId: string, amount: string }>({ isOpen: false, customerId: "", amount: "" }); // NEW
   const [editUserModal, setEditUserModal] = useState<{ isOpen: boolean, id: string, full_name: string, phone: string, office: string, new_balance: string }>({ isOpen: false, id: "", full_name: "", phone: "", office: "", new_balance: "" });
+
+  const [broadcastTitle, setBroadcastTitle] = useState("");
+  const [broadcastBody, setBroadcastBody] = useState("");
+  const [broadcastUrl, setBroadcastUrl] = useState("https://bowlit.in");
+  const [isBroadcasting, setIsBroadcasting] = useState(false);
 
   const [newItem, setNewItem] = useState({ name: "", price: "", type: "Veg", description: "", image: "" });
   const [newRider, setNewRider] = useState({ name: "", phone: "", password: "" });
@@ -313,6 +318,38 @@ function AdminDashboard() {
     }
   };
 
+  const handleBroadcast = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!broadcastTitle || !broadcastBody) return alert("Title and Body are required for Broadcasts.");
+
+    if (!confirm("Are you sure you want to broadcast this notification to ALL subscribers?")) return;
+
+    setIsBroadcasting(true);
+    try {
+      const res = await fetch('/api/broadcast-push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: broadcastTitle,
+          body: broadcastBody,
+          url: broadcastUrl
+        })
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        alert(`Broadcast complete! Sent: ${data.sent} | Failed/Dead: ${data.failed}`);
+        setBroadcastTitle("");
+        setBroadcastBody("");
+      } else {
+        alert("Broadcast Error: " + data.error);
+      }
+    } catch (e) {
+      alert("Server Error while broadcasting");
+    }
+    setIsBroadcasting(false);
+  };
+
   const handleSaveSettings = async () => {
     setSavingSettings(true);
     try {
@@ -345,6 +382,8 @@ function AdminDashboard() {
           <SidebarItem icon={<Bike size={20} />} label="Fleet Manager" active={activeTab === 'fleet'} onClick={() => setActiveTab('fleet')} />
           <SidebarItem icon={<Users size={20} />} label="Customers" active={activeTab === 'customers'} onClick={() => setActiveTab('customers')} />
           <SidebarItem icon={<Settings size={20} />} label="Delivery Zones" active={activeTab === 'zones'} onClick={() => setActiveTab('zones')} />
+          <div className="pt-4 pb-2 text-xs font-bold text-gray-500 uppercase tracking-wider">Growth & Marketing</div>
+          <SidebarItem icon={<Megaphone size={20} />} label="Broadcasts" active={activeTab === 'broadcasts'} onClick={() => setActiveTab('broadcasts')} />
           <div className="pt-4 pb-2 text-xs font-bold text-gray-500 uppercase tracking-wider">Content Management</div>
           <SidebarItem icon={<Utensils size={20} />} label="Add-ons Menu" active={activeTab === 'menu'} onClick={() => setActiveTab('menu')} />
           <SidebarItem icon={<CreditCard size={20} />} label="Sub. Plans" active={activeTab === 'plans'} onClick={() => setActiveTab('plans')} />
@@ -680,6 +719,70 @@ function AdminDashboard() {
                 </table>
               </div>
             )}
+
+            {/* MARKETING BROADCASTS */}
+            {activeTab === 'broadcasts' && (
+              <div className="bg-white p-6 md:p-10 rounded-3xl shadow-sm border border-gray-100 max-w-3xl mx-auto">
+                <div className="flex items-center gap-3 mb-8">
+                  <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
+                    <Megaphone className="text-orange-600" size={24} />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900">Marketing Broadcasts</h2>
+                    <p className="text-gray-500 text-sm mt-1">Send a push notification to all {customers.length > 0 ? customers.length : "registered"} APP users.</p>
+                  </div>
+                </div>
+
+                <form onSubmit={handleBroadcast} className="space-y-6">
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">Notification Title</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 🍛 Weekend Special Offer!"
+                      required
+                      value={broadcastTitle}
+                      onChange={e => setBroadcastTitle(e.target.value)}
+                      className="w-full border-2 border-gray-200 rounded-xl p-4 focus:ring-4 focus:ring-orange-100 focus:border-orange-500 outline-none transition-all font-medium"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">Notification Body</label>
+                    <textarea
+                      placeholder="e.g. Get 20% off your next BowlIt subscription. Tap to claim!"
+                      required
+                      rows={3}
+                      value={broadcastBody}
+                      onChange={e => setBroadcastBody(e.target.value)}
+                      className="w-full border-2 border-gray-200 rounded-xl p-4 focus:ring-4 focus:ring-orange-100 focus:border-orange-500 outline-none transition-all resize-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">Tap URL (Optional)</label>
+                    <input
+                      type="url"
+                      placeholder="https://bowlit.in/"
+                      value={broadcastUrl}
+                      onChange={e => setBroadcastUrl(e.target.value)}
+                      className="w-full border-2 border-gray-200 rounded-xl p-4 focus:ring-4 focus:ring-orange-100 focus:border-orange-500 outline-none transition-all text-sm"
+                    />
+                  </div>
+
+                  <div className="pt-4 border-t border-gray-100">
+                    <button
+                      type="submit"
+                      disabled={isBroadcasting}
+                      className="w-full bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 text-white font-bold py-5 rounded-2xl flex items-center justify-center gap-3 transition-all shadow-xl shadow-orange-600/20 disabled:opacity-50 disabled:cursor-not-allowed text-lg"
+                    >
+                      {isBroadcasting ? <Loader2 className="animate-spin" size={24} /> : <Send size={24} />}
+                      {isBroadcasting ? 'Broadcasting to Users...' : 'Send Broadcast'}
+                    </button>
+                    <p className="text-center text-xs text-gray-400 font-medium mt-4">
+                      Careful! This will immediately wake up the devices of all subscribed users.
+                    </p>
+                  </div>
+                </form>
+              </div>
+            )}
           </>
         )}
 
@@ -772,6 +875,6 @@ function AdminDashboard() {
           </div>
         )}
       </main>
-    </div>
+    </div >
   );
 }

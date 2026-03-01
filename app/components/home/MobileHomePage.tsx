@@ -1,12 +1,13 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-   Zap, ArrowRight, Wallet, Leaf, Star, Beef, Settings, X, PlusCircle, Calendar, Clock, Utensils, ChevronRight, CheckCircle2
+   Zap, ArrowRight, Wallet, Leaf, Star, Beef, Settings, X, PlusCircle, Calendar, Clock, Utensils, ChevronRight, CheckCircle2, CheckCircle
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { useCart } from "../../context/CartContext";
+import { supabase } from "../../lib/supabaseClient";
 
 type Plan = { id: string; name: string; base_price: number; type: string; description: string; };
 type WeeklyMenu = { day_of_week: string; lunch_dish: string; veg_dish: string; non_veg_dish: string; };
@@ -20,13 +21,31 @@ interface MobileHomeProps {
 
 export default function MobileHomePage({ plans, weeklyMenu, addOns }: MobileHomeProps) {
    const [mealTiming, setMealTiming] = useState<"lunch" | "dinner" | "combo">("lunch");
-   const [duration, setDuration] = useState<7 | 14 | 28>(28);
-   const { addToCart } = useCart();
+   const [duration, setDuration] = useState<7 | 14 | 28>(7); // Changed initial duration to 7
+   const { cart, addToCart } = useCart(); // Extracted cart from useCart
    const [isTrialModalOpen, setIsTrialModalOpen] = useState(false);
    const [isCustomModalOpen, setIsCustomModalOpen] = useState(false);
+   const [hasActivePlan, setHasActivePlan] = useState(false); // Added hasActivePlan state
 
    // Common image for Trial Pack (Using the delicious thali image)
-   const TRIAL_IMAGE = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=1000";
+   const TRIAL_IMAGE = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=800&auto=format&fit=crop"; // Updated TRIAL_IMAGE URL
+
+   useEffect(() => {
+      supabase.auth.getUser().then(({ data: { user } }) => {
+         if (user?.user_metadata?.active_plan) {
+            setHasActivePlan(true);
+         }
+      });
+   }, []);
+
+   const handleAddOn = (item: any) => {
+      const hasSubscriptionInCart = cart.some((c: any) => c.type === "Subscription" || c.type === "Trial" || c.name?.includes("Plan"));
+      if (!hasActivePlan && !hasSubscriptionInCart) {
+         alert("Add-ons are exclusive to our active subscribers! Please add a Meal Plan to your cart first.");
+         return;
+      }
+      addToCart({ id: item.id, name: item.name, price: item.price, type: "Add-on", quantity: 1, image: item.image, description: "Add-on" });
+   };
 
    const calculatePrice = (basePrice: number) => basePrice * duration * (mealTiming === 'combo' ? 2 : 1);
 
@@ -194,8 +213,8 @@ export default function MobileHomePage({ plans, weeklyMenu, addOns }: MobileHome
          <section className="px-6 pb-12 bg-white pt-10 rounded-t-[2.5rem]">
             <h2 className="text-xl font-black mb-6">Extras</h2>
             <div className="grid grid-cols-2 gap-4">
-               {addOns.map(item => (
-                  <motion.div whileTap={{ scale: 0.95 }} key={item.id} className="bg-gray-50 p-3 rounded-[1.5rem] border border-gray-100 shadow-sm" onClick={() => addToCart({ id: item.id, name: item.name, price: item.price, type: "Add-on", quantity: 1, image: item.image, description: "Add-on" })}>
+               {addOns.map((item: any) => (
+                  <motion.div whileTap={{ scale: 0.95 }} key={item.id} className="bg-gray-50 p-3 rounded-[1.5rem] border border-gray-100 shadow-sm" onClick={() => handleAddOn(item)}>
                      <div className="h-28 bg-white rounded-2xl mb-3 overflow-hidden relative">
                         <Image src={item.image} alt={item.name} fill className="object-cover" />
                         <div className="absolute bottom-2 right-2 bg-white p-1.5 rounded-full text-orange-600 shadow-md"><PlusCircle size={16} /></div>

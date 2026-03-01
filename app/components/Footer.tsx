@@ -70,7 +70,7 @@ export default function Footer() {
             </li>
             <li className="flex items-center gap-3">
               <Mail size={18} className="text-orange-600 shrink-0" />
-              <span>support@bowlit.com</span>
+              <span>support@bowlit.in</span>
             </li>
           </ul>
         </div>
