@@ -1,7 +1,5 @@
 {
   "/page": "app/page.js",
   "/rider/page": "app/rider/page.js",
-  "/icon.svg/route": "app/icon.svg/route.js",
-  "/admin/page": "app/admin/page.js",
-  "/api/admin/users/route": "app/api/admin/users/route.js"
+  "/admin/page": "app/admin/page.js"
 }

@@ -23,7 +23,7 @@ export function AddressManager({ formData, setFormData, handleUpdateProfile, sav
         if (typeof window !== 'undefined') {
             const L = require('leaflet');
             return new L.Icon({
-                iconUrl: 'https://cdn-icons-png.flaticon.com/512/3014/3014520.png', // Or any custom pin
+                iconUrl: 'https://cdn-icons-png.flaticon.com/512/2838/2838912.png', // Clean, professional location pin
                 iconSize: [40, 40],
                 iconAnchor: [20, 40],
             });

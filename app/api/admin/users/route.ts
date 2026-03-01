@@ -65,22 +65,11 @@ export async function PATCH(request: Request) {
 
         // 2. Update Wallet Balance if provided
         if (new_balance !== undefined) {
-            // First check if wallet exists
-            const { data: wallet } = await supabaseAdmin.from('wallets').select('id').eq('user_id', id).single();
+            const { error: walletError } = await supabaseAdmin
+                .from('wallets')
+                .upsert({ user_id: id, balance: parseFloat(new_balance) });
 
-            if (wallet) {
-                const { error: walletError } = await supabaseAdmin
-                    .from('wallets')
-                    .update({ balance: parseFloat(new_balance) })
-                    .eq('user_id', id);
-                if (walletError) throw walletError;
-            } else {
-                // Create wallet if it doesn't exist yet
-                const { error: walletError } = await supabaseAdmin
-                    .from('wallets')
-                    .insert({ user_id: id, balance: parseFloat(new_balance) });
-                if (walletError) throw walletError;
-            }
+            if (walletError) throw walletError;
         }
 
         return NextResponse.json({ success: true });
