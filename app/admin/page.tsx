@@ -1,10 +1,11 @@
 "use client";
 import { useEffect, useState, useMemo } from "react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import {
   ChefHat, Plus, Trash2, Loader2, LogOut,
   ShoppingBag, Utensils, Clock,
   LayoutDashboard, CreditCard, Bike, UserPlus, XCircle, MapPin,
-  Calendar, Edit3, Save, Users, TrendingUp, IndianRupee, Bell, Settings, Megaphone, Send
+  Calendar, Edit3, Save, Users, TrendingUp, IndianRupee, Bell, Settings, Megaphone, Send, CalendarClock, Star
 } from "lucide-react";
 
 import { supabaseAdmin as supabase } from "../lib/supabaseAdminClient";
@@ -76,7 +77,7 @@ function AdminLogin({ onLoginSuccess }: { onLoginSuccess: () => void }) {
 
 // --- DASHBOARD ---
 function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState<'overview' | 'revenue' | 'logistics' | 'orders' | 'customers' | 'menu' | 'fleet' | 'zones' | 'plans' | 'weekly' | 'broadcasts'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'revenue' | 'logistics' | 'orders' | 'customers' | 'menu' | 'fleet' | 'zones' | 'plans' | 'weekly' | 'broadcasts' | 'prep' | 'feedback'>('overview');
   const [loading, setLoading] = useState(false);
 
   // Data State
@@ -86,9 +87,11 @@ function AdminDashboard() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [weeklyMenu, setWeeklyMenu] = useState<WeeklyMenu[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]); // NEW
+  const [inventoryPredictData, setInventoryPredictData] = useState<any[]>([]);
+  const [feedback, setFeedback] = useState<any[]>([]); // NEW: NPS Feedback data
 
-  // NEW: Store Settings State (Delivery Zones)
-  const [storeSettings, setStoreSettings] = useState<{ geofence_polygon: { lat: number, lng: number }[] }>({ geofence_polygon: [] });
+  // NEW: Store Settings State (Delivery Zones + Referrals)
+  const [storeSettings, setStoreSettings] = useState<{ geofence_polygon: { lat: number, lng: number }[], referral_reward_sender: number, referral_reward_receiver: number }>({ geofence_polygon: [], referral_reward_sender: 150, referral_reward_receiver: 100 });
   const [savingSettings, setSavingSettings] = useState(false);
 
   // NEW: State for Cycle Selection (1 or 2)
@@ -146,8 +149,21 @@ function AdminDashboard() {
       console.error("Failed to fetch settings", e);
     }
 
+    // FETCH AI PREDICTION
+    try {
+      const res = await fetch('/api/admin/inventory');
+      const result = await res.json();
+      if (result.success) setInventoryPredictData(result.predictions);
+    } catch (e) {
+      console.error("Failed to fetch inventory", e);
+    }
+
     const sorter: { [key: string]: number } = { "Mon": 1, "Tue": 2, "Wed": 3, "Thu": 4, "Fri": 5, "Sat": 6, "Sun": 7 };
     if (w) w.sort((a, b) => sorter[a.day_of_week] - sorter[b.day_of_week]);
+
+    // FETCH FEEDBACK
+    const { data: f } = await supabase.from('feedback').select('*').order('created_at', { ascending: false });
+    if (f) setFeedback(f);
 
     if (o) setOrders(o);
     if (m) setMenuItems(m);
@@ -186,15 +202,19 @@ function AdminDashboard() {
     const totalMoneyCollected = totalSales + totalLiabilities;
 
     // 30 Days chart
-    const last30DaysMap = Array.from({ length: 30 }).reverse().reduce((acc: any, _, i) => {
+    // 30 Days mapping for both Revenue and Order Volume
+    const last30DaysMap = Array.from({ length: 30 }).reduce((acc: any, _, i) => {
       const d = new Date(); d.setDate(d.getDate() - i);
-      acc[d.toISOString().split('T')[0]] = 0; return acc;
+      const dateStr = d.toISOString().split('T')[0];
+      acc[dateStr] = { revenue: 0, orders: 0 };
+      return acc;
     }, {});
 
     completedOrders.forEach(o => {
       const dateStr = o.created_at.split('T')[0];
       if (last30DaysMap[dateStr] !== undefined) {
-        last30DaysMap[dateStr] += (o.total_amount || 0);
+        last30DaysMap[dateStr].revenue += (o.total_amount || 0);
+        last30DaysMap[dateStr].orders += 1;
       }
     });
 
@@ -213,12 +233,24 @@ function AdminDashboard() {
       .slice(0, 10)
       .map(([name, data]) => ({ name, ...data }));
 
+    const itemPerformanceChart = Object.entries(itemCounts)
+      .map(([name, data]) => ({ name, value: data.count }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 5); // Take top 5 for the pie chart to keep it clean
+
     return {
       totalSales,
       totalLiabilities,
       totalMoneyCollected,
-      chartData: Object.entries(last30DaysMap).map(([date, total]) => ({ date, total: total as number })),
-      topItems
+      chartData: Object.entries(last30DaysMap)
+        .map(([date, data]: any) => ({
+          date: date.split('-').slice(1).join('/'), // Format as MM/DD
+          revenue: data.revenue,
+          orders: data.orders
+        }))
+        .reverse(), // Reverse to show oldest to newest on X-axis (left to right)
+      topItems,
+      itemPerformanceChart
     };
   }, [orders, customers]);
 
@@ -254,6 +286,23 @@ function AdminDashboard() {
     if (wallet) {
       const newBalance = wallet.balance + parseFloat(topUpModal.amount);
       await supabase.from('wallets').update({ balance: newBalance }).eq('user_id', topUpModal.customerId);
+
+      // AUTOMATED RECEIPT PUSH
+      try {
+        await fetch('/api/send-push', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: topUpModal.customerId,
+            title: 'Wallet Top-Up Successful! 💰',
+            body: `₹${topUpModal.amount} has been added to your wallet. New Balance: ₹${newBalance}`,
+            url: '/wallet'
+          })
+        });
+      } catch (e) {
+        console.error("Failed to push wallet receipt", e);
+      }
+
       alert(`Added ₹${topUpModal.amount} to user's wallet!`);
       setTopUpModal({ isOpen: false, customerId: "", amount: "" });
       fetchData();
@@ -374,20 +423,23 @@ function AdminDashboard() {
       {/* SIDEBAR */}
       <aside className="w-64 bg-gray-900 text-white p-6 fixed h-full z-10 flex flex-col">
         <div className="flex items-center gap-2 mb-10 text-orange-500 font-bold text-2xl"><ChefHat /> Admin</div>
-        <nav className="space-y-2 flex-1">
+        <nav className="space-y-2 flex-1 overflow-y-auto pr-2 pb-4 scrollbar-thin scrollbar-thumb-gray-700">
           <SidebarItem icon={<LayoutDashboard size={20} />} label="Overview" active={activeTab === 'overview'} onClick={() => setActiveTab('overview')} />
           <SidebarItem icon={<TrendingUp size={20} />} label="Revenue" active={activeTab === 'revenue'} onClick={() => setActiveTab('revenue')} />
           <SidebarItem icon={<MapPin size={20} />} label="Logistics Map" active={activeTab === 'logistics'} onClick={() => setActiveTab('logistics')} />
           <SidebarItem icon={<ShoppingBag size={20} />} label="Live Orders" active={activeTab === 'orders'} onClick={() => setActiveTab('orders')} />
           <SidebarItem icon={<Bike size={20} />} label="Fleet Manager" active={activeTab === 'fleet'} onClick={() => setActiveTab('fleet')} />
           <SidebarItem icon={<Users size={20} />} label="Customers" active={activeTab === 'customers'} onClick={() => setActiveTab('customers')} />
-          <SidebarItem icon={<Settings size={20} />} label="Delivery Zones" active={activeTab === 'zones'} onClick={() => setActiveTab('zones')} />
+          <SidebarItem icon={<Settings size={20} />} label="Store Settings" active={activeTab === 'zones'} onClick={() => setActiveTab('zones')} />
           <div className="pt-4 pb-2 text-xs font-bold text-gray-500 uppercase tracking-wider">Growth & Marketing</div>
+          <SidebarItem icon={<Star size={20} />} label="Feedback (NPS)" active={activeTab === 'feedback'} onClick={() => setActiveTab('feedback')} />
           <SidebarItem icon={<Megaphone size={20} />} label="Broadcasts" active={activeTab === 'broadcasts'} onClick={() => setActiveTab('broadcasts')} />
           <div className="pt-4 pb-2 text-xs font-bold text-gray-500 uppercase tracking-wider">Content Management</div>
           <SidebarItem icon={<Utensils size={20} />} label="Add-ons Menu" active={activeTab === 'menu'} onClick={() => setActiveTab('menu')} />
           <SidebarItem icon={<CreditCard size={20} />} label="Sub. Plans" active={activeTab === 'plans'} onClick={() => setActiveTab('plans')} />
           <SidebarItem icon={<Calendar size={20} />} label="Weekly Menu" active={activeTab === 'weekly'} onClick={() => setActiveTab('weekly')} />
+          <div className="pt-4 pb-2 text-xs font-bold text-gray-500 uppercase tracking-wider">Kitchen Prep</div>
+          <SidebarItem icon={<CalendarClock size={20} />} label="Prep Area (AI)" active={activeTab === 'prep'} onClick={() => setActiveTab('prep')} />
         </nav>
         <button onClick={() => supabase.auth.signOut().then(() => window.location.reload())} className="mt-auto flex items-center gap-2 text-red-400 font-bold pt-10"><LogOut size={16} /> Logout</button>
       </aside>
@@ -460,69 +512,91 @@ function AdminDashboard() {
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                  {/* 30-DAY REVENUE CHART */}
-                  <div className="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                    <div className="flex items-center gap-2 mb-6 text-gray-800 font-bold text-lg border-b pb-4">
-                      <TrendingUp size={20} className="text-orange-500" /> 30-Day Revenue Trend
+                  {/* V3 ADVANCED ANALYTICS CHARTS */}
+                  <div className="lg:col-span-2 space-y-8">
+                    {/* 30-DAY REVENUE BAR CHART */}
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                      <div className="flex items-center gap-2 mb-6 text-gray-800 font-bold text-lg border-b pb-4">
+                        <TrendingUp size={20} className="text-orange-500" /> 30-Day Revenue Trend (₹)
+                      </div>
+                      <div className="h-72 w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={revenueStats.chartData} margin={{ top: 10, right: 10, left: 10, bottom: 20 }}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                            <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#6B7280' }} tickLine={false} axisLine={false} dy={10} minTickGap={15} />
+                            <YAxis tickFormatter={(val) => `₹${val}`} tick={{ fontSize: 10, fill: '#6B7280' }} tickLine={false} axisLine={false} dx={-10} />
+                            <Tooltip cursor={{ fill: '#F3F4F6' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontWeight: 'bold' }} />
+                            <Bar dataKey="revenue" fill="#f97316" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
                     </div>
-                    <div className="h-64 flex items-end gap-1 md:gap-2 overflow-x-auto pb-6 scrollbar-thin">
-                      {revenueStats.chartData.map((data, i) => {
-                        const maxVal = Math.max(...revenueStats.chartData.map(d => d.total), 1);
-                        const heightPercent = (data.total / maxVal) * 100;
+
+                    {/* 30-DAY ORDER VOLUME LINE CHART */}
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                      <div className="flex items-center gap-2 mb-6 text-gray-800 font-bold text-lg border-b pb-4">
+                        <ShoppingBag size={20} className="text-blue-500" /> Order Volume Trend
+                      </div>
+                      <div className="h-64 w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={revenueStats.chartData} margin={{ top: 10, right: 10, left: -20, bottom: 20 }}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                            <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#6B7280' }} tickLine={false} axisLine={false} dy={10} minTickGap={15} />
+                            <YAxis tick={{ fontSize: 10, fill: '#6B7280' }} tickLine={false} axisLine={false} dx={-10} allowDecimals={false} />
+                            <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontWeight: 'bold' }} />
+                            <Line type="monotone" dataKey="orders" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4, strokeWidth: 2 }} activeDot={{ r: 6 }} />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* TOP SELLING ITEMS (MATRIX) */}
+                  <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
+                    <div className="flex items-center gap-2 text-gray-800 font-bold text-lg border-b pb-4 shrink-0">
+                      <Utensils size={20} className="text-orange-500" /> Item Performance Matrix
+                    </div>
+                    <div className="flex-1 min-h-[250px] w-full mt-4 flex justify-center items-center">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={revenueStats.itemPerformanceChart}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={60}
+                            outerRadius={80}
+                            paddingAngle={5}
+                            dataKey="value"
+                            stroke="none"
+                          >
+                            {revenueStats.itemPerformanceChart.map((entry, index) => {
+                              const COLORS = ['#f97316', '#3b82f6', '#10b981', '#8b5cf6', '#ec4899'];
+                              return <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />;
+                            })}
+                          </Pie>
+                          <Tooltip
+                            contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontWeight: 'bold' }}
+                            formatter={(value: number, name: string) => [`${value} sold`, name]}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+
+                    {/* Add Map Legend manually below the chart */}
+                    <div className="grid grid-cols-2 gap-2 mt-4 max-h-[100px] overflow-y-auto">
+                      {revenueStats.itemPerformanceChart.map((entry, index) => {
+                        const COLORS = ['#f97316', '#3b82f6', '#10b981', '#8b5cf6', '#ec4899'];
                         return (
-                          <div key={i} className="flex-1 flex flex-col items-center gap-2 group min-w-[20px]">
-                            <div className="relative w-full flex justify-center h-[200px] items-end">
-                              {/* Hover Tooltip */}
-                              <div className="absolute -top-10 bg-gray-900 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 font-bold pointer-events-none">
-                                {formatMoney(data.total)}<br />{data.date}
-                              </div>
-                              {/* Bar */}
-                              <div
-                                className="w-full max-w-[30px] bg-green-100 group-hover:bg-green-300 transition-all rounded-t-sm relative overflow-hidden"
-                                style={{ height: `${heightPercent}%`, minHeight: '4px' }}
-                              >
-                                <div className="absolute bottom-0 w-full h-1/2 bg-gradient-to-t from-green-500 to-transparent opacity-20"></div>
-                              </div>
-                            </div>
-                            {/* Show date labels only for every 5th day to avoid crowding */}
-                            <span className="text-[8px] font-bold text-gray-400 mt-1 whitespace-nowrap">
-                              {i % 5 === 0 ? data.date.split('-').slice(1).join('/') : ''}
-                            </span>
+                          <div key={index} className="flex flex-row items-center gap-2">
+                            <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: COLORS[index % COLORS.length] }}></div>
+                            <span className="text-[10px] font-bold text-gray-600 truncate">{entry.name}</span>
                           </div>
                         );
                       })}
                     </div>
-                  </div>
-
-                  {/* TOP SELLING ITEMS (LEADERBOARD) */}
-                  <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
-                    <div className="flex items-center gap-2 mb-4 text-gray-800 font-bold text-lg border-b pb-4 shrink-0">
-                      <Utensils size={20} className="text-orange-500" /> Top Selling Items
-                    </div>
-                    <div className="overflow-y-auto pr-2 space-y-3 flex-1 pb-4">
-                      {revenueStats.topItems.map((item, idx) => (
-                        <div key={item.name} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100 hover:border-orange-200 transition-colors">
-                          <div className="font-black text-gray-300 text-xl w-6 text-center">{idx + 1}</div>
-                          <div className="w-10 h-10 rounded-lg bg-white overflow-hidden shrink-0 border">
-                            {item.image ? (
-                              <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-gray-200"><Utensils size={14} /></div>
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-bold text-sm text-gray-900 truncate">{item.name}</h4>
-                            <p className="text-xs text-gray-500">{item.count} items sold</p>
-                          </div>
-                          <div className="text-right">
-                            <span className="font-black text-green-600 text-sm">₹{item.revenue}</span>
-                          </div>
-                        </div>
-                      ))}
-                      {revenueStats.topItems.length === 0 && (
-                        <div className="text-center p-6 text-sm text-gray-400 font-bold">No sales data yet.</div>
-                      )}
-                    </div>
+                    {revenueStats.itemPerformanceChart.length === 0 && (
+                      <div className="text-center w-full mt-8 text-sm text-gray-400 font-bold">No sales data yet.</div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -639,15 +713,60 @@ function AdminDashboard() {
               </div>
             )}
 
-            {/* DELIVERY ZONES / SETTINGS */}
+            {/* STORE SETTINGS */}
             {activeTab === 'zones' && (
-              <div className="flex justify-center w-full">
-                <GeofenceMap
-                  polygon={storeSettings.geofence_polygon}
-                  setPolygon={(poly) => setStoreSettings({ ...storeSettings, geofence_polygon: poly })}
-                  onSave={handleSaveSettings}
-                  saving={savingSettings}
-                />
+              <div className="space-y-6">
+
+                {/* 1. Global Referral Engine Controls */}
+                <div className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-gray-100 max-w-lg">
+                  <h3 className="text-xl font-bold flex items-center gap-2 mb-2">🎁 Two-Sided Referral Engine</h3>
+                  <p className="text-sm text-gray-500 mb-6">Dynamically set the wallet payouts when a user refers a friend. <b>Example:</b> "Use my phone number to get ₹100 off, and I get ₹150!"</p>
+
+                  <div className="space-y-6">
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-2">Referrer Reward (The person sharing the code)</label>
+                      <div className="relative">
+                        <span className="absolute left-4 top-4 text-gray-400 font-bold">₹</span>
+                        <input
+                          type="number"
+                          value={storeSettings.referral_reward_sender}
+                          onChange={e => setStoreSettings({ ...storeSettings, referral_reward_sender: parseInt(e.target.value) || 0 })}
+                          className="w-full border-2 border-gray-200 focus:border-green-500 p-4 pl-8 rounded-xl outline-none font-bold text-lg text-gray-900 transition-colors"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-2">Receiver Reward (The new customer)</label>
+                      <div className="relative">
+                        <span className="absolute left-4 top-4 text-gray-400 font-bold">₹</span>
+                        <input
+                          type="number"
+                          value={storeSettings.referral_reward_receiver}
+                          onChange={e => setStoreSettings({ ...storeSettings, referral_reward_receiver: parseInt(e.target.value) || 0 })}
+                          className="w-full border-2 border-gray-200 focus:border-green-500 p-4 pl-8 rounded-xl outline-none font-bold text-lg text-gray-900 transition-colors"
+                        />
+                      </div>
+                    </div>
+                    <button
+                      onClick={handleSaveSettings}
+                      disabled={savingSettings}
+                      className="w-full bg-black hover:bg-gray-800 text-white font-bold p-4 rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                      {savingSettings ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
+                      {savingSettings ? 'Saving Config...' : 'Save Global Settings'}
+                    </button>
+                  </div>
+                </div>
+
+                {/* 2. Geofencing Coordinates map */}
+                <div className="flex justify-center w-full">
+                  <GeofenceMap
+                    polygon={storeSettings.geofence_polygon}
+                    setPolygon={(poly) => setStoreSettings({ ...storeSettings, geofence_polygon: poly })}
+                    onSave={handleSaveSettings}
+                    saving={savingSettings}
+                  />
+                </div>
               </div>
             )}
 
@@ -781,6 +900,122 @@ function AdminDashboard() {
                     </p>
                   </div>
                 </form>
+              </div>
+            )}
+
+            {/* AI INVENTORY PREDICTION */}
+            {activeTab === 'prep' && (
+              <div className="space-y-6 animate-in fade-in duration-500">
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between">
+                  <div>
+                    <h2 className="text-xl font-bold flex items-center gap-2 mb-2"><CalendarClock className="text-orange-500" /> AI Inventory Prediction</h2>
+                    <p className="text-gray-500 text-sm">Mathematically predicted ingredient requirements for the next 14 days, accounting for active subscriptions and paused dates.</p>
+                  </div>
+                </div>
+                <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 p-1">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm whitespace-nowrap">
+                      <thead className="bg-gray-50 text-gray-500 uppercase font-bold text-[10px] tracking-wider">
+                        <tr>
+                          <th className="p-4">Delivery Date</th>
+                          <th className="p-4 bg-green-50 text-green-700 border-l border-green-100"><Utensils size={14} className="inline mr-1" /> Veg Bowls</th>
+                          <th className="p-4 bg-red-50 text-red-700 border-l border-red-100"><Utensils size={14} className="inline mr-1" /> Non-Veg Bowls</th>
+                          <th className="p-4 bg-orange-50 text-orange-700 border-l border-orange-100 text-right">Total Daily Prep Yield</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {inventoryPredictData.map((d, i) => (
+                          <tr key={i} className={`border-t ${d.isWeekend ? 'bg-gray-50 opacity-50' : 'hover:bg-gray-50'} transition-colors`}>
+                            <td className="p-4 font-bold border-r text-gray-900 border-gray-100">
+                              {d.dayOfWeek}, {d.date.split('-').slice(1).join('/')}
+                              {d.isWeekend && <span className="ml-2 text-[9px] uppercase tracking-wider bg-gray-200 px-2 py-0.5 rounded-full text-gray-500">Weekend</span>}
+                            </td>
+                            <td className="p-4 font-black text-green-600 bg-green-50/20 text-lg border-l border-green-50">
+                              {d.isWeekend ? '-' : d.vegMeals}
+                            </td>
+                            <td className="p-4 font-black text-red-600 bg-red-50/20 text-lg border-l border-red-50">
+                              {d.isWeekend ? '-' : d.nonVegMeals}
+                            </td>
+                            <td className="p-4 font-black text-orange-600 bg-orange-50/20 text-xl border-l border-orange-50 text-right">
+                              {d.isWeekend ? '-' : d.total}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {inventoryPredictData.length === 0 && <div className="text-center p-8 text-gray-400 font-bold"><Loader2 className="animate-spin inline mr-2" /> Calculating...</div>}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* FEEDBACK (NPS) ALERTS */}
+            {activeTab === 'feedback' && (
+              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                  <div>
+                    <h2 className="text-xl font-bold flex items-center gap-2 mb-2"><Star className="text-orange-500 fill-orange-500" /> Customer Feedback (NPS)</h2>
+                    <p className="text-gray-500 text-sm">Monitor live ratings from customers after their orders are delivered. Proactively refund unhappy users to stop churn.</p>
+                  </div>
+                  <div className="bg-orange-50 text-orange-700 font-black px-6 py-3 rounded-2xl text-2xl border border-orange-100 shadow-inner shrink-0">
+                    {feedback.length > 0 ? (feedback.reduce((sum, f) => sum + f.score, 0) / feedback.length).toFixed(1) : "0.0"} <span className="text-sm text-orange-400">/ 5.0</span>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm whitespace-nowrap md:whitespace-normal">
+                      <thead className="bg-gray-50 text-gray-500 uppercase font-bold tracking-wider text-xs">
+                        <tr>
+                          <th className="p-4">Customer</th>
+                          <th className="p-4">Order / Date</th>
+                          <th className="p-4">Rating</th>
+                          <th className="p-4 min-w-[200px]">Feedback Note</th>
+                          <th className="p-4 text-right">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {feedback.map(f => {
+                          const customer = customers.find(c => c.id === f.user_id);
+                          return (
+                            <tr key={f.id} className="hover:bg-gray-50 transition-colors">
+                              <td className="p-4 font-bold text-gray-900">{customer?.full_name || "Unknown User"}</td>
+                              <td className="p-4 text-gray-600">
+                                <span className="font-bold">Order #{f.order_id}</span><br />
+                                <span className="text-xs">{new Date(f.created_at).toLocaleDateString()}</span>
+                              </td>
+                              <td className="p-4">
+                                <div className="flex gap-1">
+                                  {[1, 2, 3, 4, 5].map(star => (
+                                    <Star key={star} size={16} className={star <= f.score ? "text-yellow-400 fill-yellow-400" : "text-gray-200"} />
+                                  ))}
+                                </div>
+                              </td>
+                              <td className="p-4 italic text-gray-600">
+                                {f.comment ? `"${f.comment}"` : <span className="text-gray-300">No comment provided</span>}
+                              </td>
+                              <td className="p-4 text-right">
+                                {f.score <= 3 ? (
+                                  <button
+                                    onClick={() => setTopUpModal({ isOpen: true, customerId: f.user_id, amount: "200" })}
+                                    className="bg-red-50 text-red-600 font-bold px-3 py-2 rounded-xl text-xs hover:bg-red-100 transition-colors border border-red-100 shadow-sm whitespace-nowrap"
+                                  >
+                                    Refund & Apologize
+                                  </button>
+                                ) : (
+                                  <span className="text-green-500 font-bold text-xs bg-green-50 px-3 py-1.5 rounded-lg border border-green-100 inline-block">Happy Customer</span>
+                                )}
+                              </td>
+                            </tr>
+                          )
+                        })}
+                        {feedback.length === 0 && (
+                          <tr><td colSpan={5} className="p-8 text-center text-gray-400 font-bold">No feedback received yet.</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               </div>
             )}
           </>

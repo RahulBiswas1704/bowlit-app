@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { X, ShoppingBag, ArrowRight, Loader2, MapPin, AlertCircle, Plus, Minus, LocateFixed } from "lucide-react";
+import { X, ShoppingBag, ArrowRight, Loader2, MapPin, AlertCircle, Plus, Minus, LocateFixed, CheckCircle2, Ticket } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCart } from "../context/CartContext";
 import { supabase } from "../lib/supabaseClient";
@@ -24,6 +24,11 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
   const [customer, setCustomer] = useState({ name: "", phone: "" });
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string>("");
+
+  // REFERRAL SYSTEM STATE
+  const [promoCode, setPromoCode] = useState("");
+  const [promoApplied, setPromoApplied] = useState<{ id: string, amount: number } | null>(null);
+  const [isApplyingPromo, setIsApplyingPromo] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -82,21 +87,64 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
     setLoading(false);
   };
 
+  const handleApplyPromo = async () => {
+    if (!promoCode || !userId) return;
+    setIsApplyingPromo(true);
+
+    try {
+      // 1. Cannot refer yourself
+      if (promoCode === customer.phone) {
+        throw new Error("You cannot use your own phone number.");
+      }
+
+      // 2. Fetch the referrer's user payload from Auth (must use Edge Function or rely on the fact that metadata is locked behind RLS. 
+      // ACTUALLY: We don't have direct access to auth.users from the client.
+      // WORKAROUND: We will build an Edge Function / API route `POST /api/referral/validate` to do backend-secure checks.
+      const res = await fetch('/api/referrals/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ promoCode, receiverId: userId })
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      setPromoApplied({ id: data.referrerId, amount: data.receiverReward });
+      alert(`Promo Applied! ₹${data.receiverReward} off!`);
+
+    } catch (e: any) {
+      alert(e.message);
+      setPromoCode("");
+    }
+    setIsApplyingPromo(false);
+  };
+
   const handlePayment = async () => {
     const selectedObj = savedAddresses.find(a => a.id === selectedAddressId);
     if (!customer.name || !customer.phone || !selectedObj) return alert("Please select a delivery address and fill all details.");
 
     const finalAddress = `${selectedObj.tag} - ${selectedObj.building_name}, ${selectedObj.office} (Instructions: ${selectedObj.delivery_instructions || "None"})`;
 
-    if (balance < cartTotal) return alert(`Insufficient Balance! You need ₹${cartTotal - balance} more.`);
+    const finalPayable = Math.max(0, cartTotal - (promoApplied ? promoApplied.amount : 0));
+
+    if (balance < finalPayable) return alert(`Insufficient Balance! You need ₹${finalPayable - balance} more.`);
 
     setLoading(true);
 
-    const { error: paymentError } = await supabase.rpc('pay_order', { amount_to_pay: cartTotal });
+    const { error: paymentError } = await supabase.rpc('pay_order', { amount_to_pay: finalPayable });
     if (paymentError) {
       alert("Payment Failed: " + paymentError.message);
       setLoading(false);
       return;
+    }
+
+    // Process Referral Backend Execution (Credit the sender async)
+    if (promoApplied) {
+      await fetch('/api/referrals/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ referrerId: promoApplied.id, receiverId: userId })
+      });
     }
 
     const subscriptionItem = cart.find(item => item.type === "Subscription" || item.name.includes("Plan") || item.name.includes("Bowl") || item.type === "Trial");
@@ -144,7 +192,8 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
   };
 
   const cartLength = cart?.length || 0;
-  const deficit = Math.max(0, cartTotal - balance);
+  const finalPayable = Math.max(0, cartTotal - (promoApplied ? promoApplied.amount : 0));
+  const deficit = Math.max(0, finalPayable - balance);
 
   return (
     <AnimatePresence>
@@ -196,9 +245,39 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
 
             {cartLength > 0 && (
               <div className="p-6 border-t bg-gray-50 space-y-4">
+
+                {/* PROMO CODE BOX */}
+                {isCheckingOut && (
+                  <div className="bg-white p-3 rounded-xl border border-gray-200 flex items-center justify-between gap-2 shadow-sm">
+                    <span className="text-gray-400 pl-2"><Ticket size={20} /></span>
+                    <input
+                      type="text"
+                      placeholder="Promo Code (Phone #)"
+                      className="w-full bg-transparent outline-none font-bold text-sm uppercase"
+                      value={promoCode}
+                      disabled={promoApplied !== null}
+                      onChange={e => setPromoCode(e.target.value)}
+                    />
+                    {!promoApplied ? (
+                      <button
+                        disabled={!promoCode || isApplyingPromo}
+                        onClick={handleApplyPromo}
+                        className="bg-black text-white text-xs font-bold px-4 py-2 rounded-lg disabled:opacity-50 whitespace-nowrap"
+                      >
+                        {isApplyingPromo ? '...' : 'Apply'}
+                      </button>
+                    ) : (
+                      <div className="text-green-600 font-bold flex items-center gap-1 text-sm whitespace-nowrap"><CheckCircle2 size={16} /> Applied</div>
+                    )}
+                  </div>
+                )}
+
                 <div className="flex justify-between items-center text-xl font-bold text-gray-900">
                   <span>Total Bill</span>
-                  <span>₹{cartTotal}</span>
+                  <div className="text-right">
+                    {promoApplied && <div className="text-xs text-green-500 font-bold line-through">₹{cartTotal}</div>}
+                    <span>₹{finalPayable}</span>
+                  </div>
                 </div>
 
                 {isCheckingOut && deficit > 0 && (

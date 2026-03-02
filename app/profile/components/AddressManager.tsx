@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { MapPin, Building, Info, Save, Loader2, Plus, Home, Briefcase, Navigation, Trash2, CheckCircle2 } from "lucide-react";
+import { MapPin, Building, Info, Save, Loader2, Plus, Home, Briefcase, Navigation, Trash2, CheckCircle2, AlertTriangle } from "lucide-react";
 
 // Standard Next.js workaround for Leaflet SSR issues
 import dynamic from 'next/dynamic';
@@ -59,6 +59,11 @@ export function AddressManager({ userId }: { userId: string }) {
     const [isAddingNew, setIsAddingNew] = useState(false);
     const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
 
+    // Waitlist State
+    const [showWaitlistModal, setShowWaitlistModal] = useState(false);
+    const [waitlistPhone, setWaitlistPhone] = useState("");
+    const [isJoiningWaitlist, setIsJoiningWaitlist] = useState(false);
+
     // Form Data for New/Edit Address
     const [formData, setFormData] = useState<Partial<SavedAddress>>({
         tag: "Home",
@@ -88,6 +93,9 @@ export function AddressManager({ userId }: { userId: string }) {
         const fetchData = async () => {
             // 1. Fetch User Addresses
             const { data: { user } } = await supabase.auth.getUser();
+            if (user?.user_metadata?.phone) {
+                setWaitlistPhone(user.user_metadata.phone);
+            }
             if (user?.user_metadata?.saved_addresses) {
                 setAddresses(user.user_metadata.saved_addresses);
             } else if (user?.user_metadata?.latitude) {
@@ -186,7 +194,12 @@ export function AddressManager({ userId }: { userId: string }) {
     const handleSaveAddress = async () => {
         if (!formData.latitude || !formData.longitude) return alert("Please drop a pin on the map!");
         if (!formData.building_name || !formData.office) return alert("Please fill address details!");
-        if (!isInsideGeofence) return alert("Selected location is outside our delivery zone!");
+
+        // WAITLIST INTERCEPTION
+        if (!isInsideGeofence) {
+            setShowWaitlistModal(true);
+            return;
+        }
 
         setSaving(true);
         let updatedAddresses = [...addresses];
@@ -254,7 +267,70 @@ export function AddressManager({ userId }: { userId: string }) {
         return <Navigation size={size} />;
     };
 
+    const handleJoinWaitlist = async () => {
+        if (!waitlistPhone) return alert("Please enter your phone number");
+        setIsJoiningWaitlist(true);
+        try {
+            const res = await fetch('/api/waitlist', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    phone: waitlistPhone,
+                    latitude: formData.latitude,
+                    longitude: formData.longitude
+                })
+            });
+            if (!res.ok) throw new Error("Failed to join waitlist");
+
+            alert("Awesome! You're on the waitlist. We will text you when BowlIt opens in your area.");
+            setShowWaitlistModal(false);
+            resetForm();
+        } catch (e: any) {
+            alert(e.message);
+        }
+        setIsJoiningWaitlist(false);
+    };
+
     if (loading) return <div className="p-8 text-center text-gray-400 font-bold flex justify-center items-center"><Loader2 className="animate-spin mr-2" /> Loading Addresses...</div>;
+
+    // WAITLIST MODAL OVERLAY
+    if (showWaitlistModal) {
+        return (
+            <div className="bg-white rounded-[2rem] p-8 md:p-12 shadow-xl border border-orange-100 text-center relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-orange-500 to-red-500"></div>
+                <div className="mx-auto w-20 h-20 bg-orange-50 text-orange-600 rounded-full flex items-center justify-center mb-6 ring-8 ring-orange-50/50">
+                    <AlertTriangle size={32} />
+                </div>
+                <h3 className="text-2xl md:text-3xl font-black text-gray-900 mb-4 tracking-tight">We're not in your area... <span className="text-orange-600">yet!</span></h3>
+                <p className="text-gray-500 max-w-md mx-auto mb-8 font-medium">
+                    BowlIt is expanding rapidly across the city. Drop your phone number below, and we'll send you an exclusive Day-1 discount the moment we open a kitchen near your dropped pin.
+                </p>
+
+                <div className="max-w-xs mx-auto space-y-4">
+                    <input
+                        type="text"
+                        placeholder="Phone Number"
+                        value={waitlistPhone}
+                        onChange={e => setWaitlistPhone(e.target.value)}
+                        className="w-full text-center border-2 border-gray-200 focus:border-orange-500 p-4 rounded-xl font-bold bg-gray-50 outline-none transition-colors"
+                    />
+                    <button
+                        onClick={handleJoinWaitlist}
+                        disabled={!waitlistPhone || isJoiningWaitlist}
+                        className="w-full bg-black hover:bg-gray-800 text-white font-bold p-4 rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                        {isJoiningWaitlist ? <Loader2 className="animate-spin" size={20} /> : "Join the Waitlist"}
+                    </button>
+                    <button
+                        onClick={() => setShowWaitlistModal(false)}
+                        className="w-full text-gray-500 hover:text-gray-900 font-bold p-2 text-sm"
+                    >
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-gray-100">

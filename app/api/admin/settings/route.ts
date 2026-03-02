@@ -31,14 +31,16 @@ export async function GET() {
 export async function PATCH(request: Request) {
     try {
         const body = await request.json();
-        const { geofence_polygon } = body;
+        const { geofence_polygon, referral_reward_sender, referral_reward_receiver } = body;
 
         // Upsert row 1
         const { error } = await supabaseAdmin
             .from('store_settings')
             .upsert({
                 id: 1,
-                geofence_polygon: geofence_polygon || []
+                geofence_polygon: geofence_polygon || [],
+                referral_reward_sender: referral_reward_sender !== undefined ? referral_reward_sender : 150,
+                referral_reward_receiver: referral_reward_receiver !== undefined ? referral_reward_receiver : 100
             });
 
         if (error) throw error;

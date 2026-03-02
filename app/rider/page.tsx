@@ -5,7 +5,7 @@ import { supabase } from "../lib/supabaseClient";
 
 // --- TYPES ---
 type Rider = { id: number; name: string; phone: string; };
-type Order = { id: number; customer_name: string; customer_phone: string; address: string; total_amount: number; status: string; items: any[]; created_at: string; customer_latitude?: number; customer_longitude?: number; building_name?: string; delivery_instructions?: string; };
+type Order = { id: number; user_id: string; customer_name: string; customer_phone: string; address: string; total_amount: number; status: string; items: any[]; created_at: string; customer_latitude?: number; customer_longitude?: number; building_name?: string; delivery_instructions?: string; };
 
 export default function RiderPanel() {
   const [rider, setRider] = useState<Rider | null>(null);
@@ -135,15 +135,31 @@ export default function RiderPanel() {
     }
   };
 
-  const markDelivered = async (orderId: number, expectedOtp: string) => {
-    const enteredOtp = otpInputs[orderId];
+  const markDelivered = async (order: Order, expectedOtp: string) => {
+    const enteredOtp = otpInputs[order.id];
     if (!enteredOtp || enteredOtp !== expectedOtp) {
       return alert("Invalid Delivery PIN! Please ask the customer for their 4-digit PIN.");
     }
 
     // Optimistic UI update could go here, but Realtime handles it.
-    await supabase.from('orders').update({ status: 'Completed' }).eq('id', orderId);
-    setOtpInputs(prev => ({ ...prev, [orderId]: "" })); // Clear input
+    await supabase.from('orders').update({ status: 'Completed' }).eq('id', order.id);
+    setOtpInputs(prev => ({ ...prev, [order.id]: "" })); // Clear input
+
+    // AUTOMATED DELIVERY RECEIPT
+    try {
+      await fetch('/api/send-push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: order.user_id,
+          title: 'Order Delivered! 🍲',
+          body: `Your food has arrived safely. Enjoy your meal!`,
+          url: '/profile'
+        })
+      });
+    } catch (e) {
+      console.error("Failed to push delivery receipt", e);
+    }
   };
 
   // --- RENDER: LOGIN ---
@@ -334,7 +350,7 @@ export default function RiderPanel() {
                       onChange={(e) => setOtpInputs({ ...otpInputs, [order.id]: e.target.value.replace(/\D/g, '') })}
                     />
                     <button
-                      onClick={() => markDelivered(order.id, order.customer_phone.slice(-4))}
+                      onClick={() => markDelivered(order, order.customer_phone.slice(-4))}
                       disabled={
                         !otpInputs[order.id] ||
                         otpInputs[order.id].length !== 4 ||

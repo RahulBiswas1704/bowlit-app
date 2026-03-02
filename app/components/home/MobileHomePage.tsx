@@ -9,7 +9,7 @@ import Image from "next/image";
 import { useCart } from "../../context/CartContext";
 import { supabase } from "../../lib/supabaseClient";
 
-type Plan = { id: string; name: string; base_price: number; type: string; description: string; };
+type Plan = { id: string; name: string; base_price: number; type: string; description: string; features?: string[]; };
 type WeeklyMenu = { day_of_week: string; lunch_dish: string; veg_dish: string; non_veg_dish: string; };
 type AddOn = { id: number; name: string; price: number; image: string; };
 
@@ -200,7 +200,14 @@ export default function MobileHomePage({ plans, weeklyMenu, addOns }: MobileHome
                               </div>
                            </div>
                            <h3 className="text-xl font-bold text-gray-900 mb-1">{plan.name}</h3>
-                           <p className="text-sm text-gray-500 mb-6 line-clamp-2">{plan.description}</p>
+                           <p className="text-sm text-gray-500 mb-4 line-clamp-2">{plan.description}</p>
+                           <div className="space-y-2 mb-6">
+                              {(plan.features || ["Homestyle Quality", "Free Delivery", "Pause Anytime"]).map((f, i) => (
+                                 <div key={i} className="flex gap-2 text-sm text-gray-700 font-medium">
+                                    <CheckCircle size={16} className="text-green-600 shrink-0" /> {f}
+                                 </div>
+                              ))}
+                           </div>
                            <button onClick={() => addToCart({ id: `${plan.id}-${mealTiming}-${duration}`, name: plan.name, price: calculatePrice(plan.base_price), type: "Subscription", quantity: 1, image: "", description: `${duration} Days` })} className="w-full bg-black text-white py-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-transform">Add Subscription <PlusCircle size={16} /></button>
                         </div>
                      </motion.div>

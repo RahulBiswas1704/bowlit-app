@@ -27,18 +27,16 @@ export default function WalletPage() {
    const handleTopUp = async (amount: number) => {
       if (!userId) return alert("Please Login!");
 
-      if (confirm(`Add ₹${amount} to your wallet?`)) {
-         const newBalance = balance + amount;
-         const { error } = await supabase
-            .from('wallets')
-            .upsert({ user_id: userId, balance: newBalance });
+      if (confirm(`You are requesting to add ₹${amount} to your wallet.\n\nYou will be redirected to WhatsApp to send the payment confirmation to our Admin team. They will credit your wallet instantly after verifying the payment.`)) {
 
-         if (error) alert("Error: " + error.message);
-         else {
-            alert(`Success! Added ₹${amount}`);
-            setBalance(newBalance);
-            setCustomAmount("");
-         }
+         const adminPhone = "919999999999"; // REPLACE WITH ACTUAL BOWLIT BUSINESS NUMBER
+         const message = `Hi BowlIt Admin! 🍲\n\nI want to top-up *₹${amount}* to my wallet.\nMy User ID is: *${userId}*\n\nHere is my payment screenshot attached below:`;
+
+         const whatsappUrl = `https://wa.me/${adminPhone}?text=${encodeURIComponent(message)}`;
+
+         // Open WhatsApp in a new tab/app
+         window.open(whatsappUrl, '_blank');
+         setCustomAmount("");
       }
    };
 

@@ -20,7 +20,7 @@ type PersonalDetailsFormProps = {
 export function PersonalDetailsForm({ formData, setFormData, handleUpdateProfile, saving }: PersonalDetailsFormProps) {
     return (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="bg-white rounded-2xl md:rounded-3xl p-5 md:p-8 shadow-sm border border-gray-100">
-            <form onSubmit={handleUpdateProfile} className="space-y-5 md:space-y-6">
+            <div className="space-y-5 md:space-y-6">
                 <h3 className="text-lg md:text-xl font-bold text-gray-900 border-b pb-3 md:pb-4">Personal Details</h3>
                 <div className="grid md:grid-cols-2 gap-4 md:gap-6">
                     <div className="opacity-60 cursor-not-allowed">
@@ -61,10 +61,10 @@ export function PersonalDetailsForm({ formData, setFormData, handleUpdateProfile
                         <input type="date" value={formData.dob} onChange={(e) => setFormData({ ...formData, dob: e.target.value })} className="w-full p-3 text-sm md:text-base border rounded-xl font-bold text-gray-900" />
                     </div>
                 </div>
-                <button type="submit" disabled={saving} className="w-full bg-orange-600 text-white py-3.5 md:py-4 mt-2 rounded-xl font-bold text-base md:text-lg shadow-lg hover:bg-orange-700 transition flex items-center justify-center gap-2">
+                <button type="button" onClick={handleUpdateProfile} disabled={saving} className="w-full bg-orange-600 text-white py-3.5 md:py-4 mt-2 rounded-xl font-bold text-base md:text-lg shadow-lg hover:bg-orange-700 transition flex items-center justify-center gap-2">
                     {saving ? <Loader2 className="animate-spin" /> : <><Save size={18} className="md:w-5 md:h-5" /> Save Changes</>}
                 </button>
-            </form>
+            </div>
         </motion.div>
     );
 }

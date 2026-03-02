@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import dynamic from 'next/dynamic';
 import 'leaflet/dist/leaflet.css';
 import { Order } from "../../types";
-import { User, Phone, MapPin, Loader2 } from "lucide-react";
+import { User, Phone, MapPin, Loader2, Flame } from "lucide-react";
 
 // Dynamically import Leaflet components so they don't crash on the server
 const MapContainer = dynamic(() => import('react-leaflet').then(m => m.MapContainer), { ssr: false });
@@ -17,9 +17,18 @@ const DEFAULT_CENTER = { lat: 22.5726, lng: 88.3639 };
 
 export function LogisticsMap({ orders }: { orders: Order[] }) {
     const [isClient, setIsClient] = useState(false);
+    const [waitlistCoords, setWaitlistCoords] = useState<{ latitude: number, longitude: number, created_at: string }[]>([]);
+    const [showHeatmap, setShowHeatmap] = useState(false);
 
     useEffect(() => {
         setIsClient(true);
+        // Fetch Waitlist Demand Data
+        fetch('/api/waitlist')
+            .then(res => res.json())
+            .then(data => {
+                if (data.waitlist) setWaitlistCoords(data.waitlist);
+            })
+            .catch(err => console.error("Error fetching waitlist", err));
     }, []);
 
     // Filter for ONLY valid, pending orders that actually have GPS coordinates
@@ -47,6 +56,20 @@ export function LogisticsMap({ orders }: { orders: Order[] }) {
         return null;
     }, []);
 
+    // Waitlist Heatmap Icon (Red and Glowing)
+    const heatIcon = useMemo(() => {
+        if (typeof window !== 'undefined') {
+            const L = require('leaflet');
+            return L.divIcon({
+                className: 'heat-pin',
+                html: `<div style="background-color: #ef4444; width: 16px; height: 16px; border-radius: 50%; box-shadow: 0 0 15px 5px rgba(239, 68, 68, 0.6); border: 2px solid white;"></div>`,
+                iconSize: [16, 16],
+                iconAnchor: [8, 8],
+            });
+        }
+        return null;
+    }, []);
+
     if (!isClient) {
         return <div className="h-[600px] w-full flex flex-col items-center justify-center bg-gray-50 rounded-[2.5rem] border border-gray-100 text-gray-400 font-bold"><Loader2 className="animate-spin mb-4" size={32} /> Loading City Map...</div>;
     }
@@ -59,9 +82,16 @@ export function LogisticsMap({ orders }: { orders: Order[] }) {
                     <p className="text-gray-500 font-medium">Tracking {mappedOrders.length} active delivery drops.</p>
                 </div>
                 {orders.length > 0 && (
-                    <div className="flex gap-4">
-                        <span className="bg-orange-50 text-orange-600 px-3 py-1 rounded-full text-xs font-bold">{mappedOrders.length} Mapped</span>
-                        <span className="bg-gray-100 text-gray-500 px-3 py-1 rounded-full text-xs font-bold">{orders.filter(o => o.status !== "Completed" && (!o.customer_latitude || !o.customer_longitude)).length} Missing GPS</span>
+                    <div className="flex gap-4 items-center">
+                        <button
+                            onClick={() => setShowHeatmap(!showHeatmap)}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold transition-all ${showHeatmap ? 'bg-red-600 text-white shadow-lg shadow-red-500/30' : 'bg-red-50 text-red-600 hover:bg-red-100'}`}
+                        >
+                            <Flame size={14} />
+                            {showHeatmap ? 'Hide Waitlist' : `Show Waitlist (${waitlistCoords.length})`}
+                        </button>
+                        <span className="bg-orange-50 text-orange-600 px-3 py-2 rounded-full text-xs font-bold">{mappedOrders.length} Drops Mapped</span>
+                        <span className="bg-gray-100 text-gray-500 px-3 py-2 rounded-full text-xs font-bold">{orders.filter(o => o.status !== "Completed" && (!o.customer_latitude || !o.customer_longitude)).length} Missing GPS</span>
                     </div>
                 )}
             </div>
@@ -72,9 +102,10 @@ export function LogisticsMap({ orders }: { orders: Order[] }) {
                     {/* @ts-ignore */}
                     <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
 
+                    {/* RENDER ACTIVE LIVE ORDERS */}
                     {mappedOrders.map((order) => (
                         /* @ts-ignore */
-                        <Marker key={order.id} position={[order.customer_latitude!, order.customer_longitude!]} icon={markerIcon}>
+                        <Marker key={`order-${order.id}`} position={[order.customer_latitude!, order.customer_longitude!]} icon={markerIcon}>
                             {/* @ts-ignore */}
                             <Popup className="custom-popup bg-transparent">
                                 <div className="p-1 min-w-[200px]">
@@ -96,6 +127,12 @@ export function LogisticsMap({ orders }: { orders: Order[] }) {
                                 </div>
                             </Popup>
                         </Marker>
+                    ))}
+
+                    {/* RENDER WAITLIST HEATMAP */}
+                    {showHeatmap && waitlistCoords.map((coord, i) => (
+                        /* @ts-ignore */
+                        <Marker key={`waitlist-${i}`} position={[coord.latitude, coord.longitude]} icon={heatIcon} />
                     ))}
                 </MapContainer>
             </div>
