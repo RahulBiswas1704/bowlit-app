@@ -4,12 +4,14 @@ import { motion } from "framer-motion";
 import { User, Phone, MapPin, Calendar as CalendarIcon, Wallet, Save, Loader2, Utensils, Mail, ArrowLeft, ChevronLeft, ChevronRight, PauseCircle, PlayCircle, CheckCircle, XCircle, Share2, Gift, Star } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { PlanSummaryCard } from "./components/PlanSummaryCard";
 import { PersonalDetailsForm } from "./components/PersonalDetailsForm";
 import { AddressManager } from "./components/AddressManager";
 import { LiveTrackingCard } from "../components/LiveTrackingCard";
 
 export default function ProfilePage() {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
@@ -51,7 +53,7 @@ export default function ProfilePage() {
     const fetchData = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        window.location.href = "/";
+        router.push("/");
         return;
       }
       setUserId(user.id);

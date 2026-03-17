@@ -5,25 +5,9 @@ import { supabase } from "../lib/supabaseClient";
 import { CheckCircle, Clock, Bike, Phone, Utensils, MapPin } from "lucide-react";
 import { Order, Rider, WeeklyMenu } from "../types";
 import { getRealWorldWeek } from "../lib/utils";
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
-import L from 'leaflet';
+import dynamic from 'next/dynamic';
 
-// Fix Leaflet icons
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-});
-
-// Create custom Rider bike icon
-const bikeIcon = new L.Icon({
-    iconUrl: 'https://cdn-icons-png.flaticon.com/512/2972/2972185.png', // Generic bike icon
-    iconSize: [38, 38], // size of the icon
-    iconAnchor: [19, 38], // point of the icon which will correspond to marker's location
-    popupAnchor: [0, -38] // point from which the popup should open relative to the iconAnchor
-});
+const MapRider = dynamic(() => import('./MapRider'), { ssr: false });
 
 export function LiveTrackingCard({ userId }: { userId: string }) {
     const [activeOrder, setActiveOrder] = useState<Order | null>(null);
@@ -162,27 +146,13 @@ export function LiveTrackingCard({ userId }: { userId: string }) {
                 {/* RIDER MAP */}
                 {currentStepIndex >= 1 && rider && rider.lat && rider.lng && activeOrder.customer_latitude && activeOrder.customer_longitude && (
                      <div className="h-48 w-full border-b border-gray-100 z-0 relative">
-                           <MapContainer
-                                center={[rider.lat, rider.lng]}
-                                zoom={15}
-                                scrollWheelZoom={false}
-                                style={{ height: "100%", width: "100%", zIndex: 0 }}
-                                dragging={false}
-                                zoomControl={false}
-                            >
-                                <TileLayer
-                                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                                    url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-                                />
-                                {/* Rider Position */}
-                                <Marker position={[rider.lat, rider.lng]} icon={bikeIcon}>
-                                    <Popup>{rider.name} is on the way!</Popup>
-                                </Marker>
-                                {/* Customer Dropoff Position */}
-                                <Marker position={[activeOrder.customer_latitude, activeOrder.customer_longitude]}>
-                                    <Popup>Your Location</Popup>
-                                </Marker>
-                            </MapContainer>
+                           <MapRider 
+                               riderLat={rider.lat} 
+                               riderLng={rider.lng} 
+                               riderName={rider.name} 
+                               customerLat={activeOrder.customer_latitude} 
+                               customerLng={activeOrder.customer_longitude} 
+                           />
                             <div className="absolute bottom-2 left-2 right-2 bg-white/90 backdrop-blur-sm p-2 rounded-xl text-xs font-bold text-gray-700 flex items-center justify-center gap-2 shadow-sm z-10 border border-gray-200">
                                 <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
                                 Live Tracking Active

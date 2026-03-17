@@ -3,7 +3,7 @@ import DesktopHomePage from "./components/home/DesktopHomePage";
 import MobileHomePage from "./components/home/MobileHomePage";
 import { supabase } from "./lib/supabaseClient";
 
-export const dynamic = 'force-dynamic';
+// Removed force-dynamic to enable ISR caching
 
 // Use Incremental Static Regeneration (ISR) to cache the page for 1 hour
 // This prevents hitting the database on every single page load

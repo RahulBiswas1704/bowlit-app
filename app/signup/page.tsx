@@ -2,10 +2,12 @@
 import { useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { useRouter } from "next/navigation";
 import { User, Phone, MapPin, ArrowRight, Leaf, Beef, Utensils, Mail, Lock, Loader2, Eye, EyeOff } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 
 export default function SignupPage() {
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [diet, setDiet] = useState(""); 
   const [showPassword, setShowPassword] = useState(false);
@@ -38,7 +40,7 @@ export default function SignupPage() {
     if (error) alert("Signup Failed: " + error.message);
     else {
       alert("Account Created Successfully! Please Log In.");
-      window.location.href = "/";
+      router.push("/");
     }
   };
 
