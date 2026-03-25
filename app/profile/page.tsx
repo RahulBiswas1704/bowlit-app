@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { User, Phone, MapPin, Calendar as CalendarIcon, Wallet, Save, Loader2, Utensils, Mail, ArrowLeft, ChevronLeft, ChevronRight, PauseCircle, PlayCircle, CheckCircle, XCircle, Share2, Gift, Star } from "lucide-react";
+import { User, Phone, MapPin, Calendar as CalendarIcon, Wallet, Save, Loader2, Utensils, Mail, ArrowLeft, ChevronLeft, ChevronRight, PauseCircle, PlayCircle, CheckCircle, XCircle, Share2, Gift, Star, ShoppingBag, Settings, LayoutDashboard } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -27,6 +27,9 @@ export default function ProfilePage() {
   const [credits, setCredits] = useState(0);
   const [activePlan, setActivePlan] = useState("");
   const [storeSettings, setStoreSettings] = useState<{ referral_reward_sender: number, referral_reward_receiver: number }>({ referral_reward_sender: 150, referral_reward_receiver: 100 });
+
+  // Tab State
+  const [activeTab, setActiveTab] = useState("dashboard");
 
   // NEW: NPS Feedback State
   const [pendingFeedbackOrder, setPendingFeedbackOrder] = useState<any>(null);
@@ -234,6 +237,14 @@ export default function ProfilePage() {
   const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   const todayStr = new Date().toISOString().split('T')[0];
 
+  const tabs = [
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'calendar', label: 'Meal Calendar', icon: CalendarIcon },
+    { id: 'orders', label: 'Order History', icon: ShoppingBag },
+    { id: 'addresses', label: 'Addresses', icon: MapPin },
+    { id: 'settings', label: 'Settings', icon: Settings },
+  ];
+
   if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-orange-600" /></div>;
 
   return (
@@ -317,7 +328,7 @@ export default function ProfilePage() {
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
               <h1 className="text-2xl md:text-3xl font-bold text-gray-900">My Profile</h1>
-              <p className="text-sm md:text-base text-gray-500">Manage subscription and preferences.</p>
+              <p className="text-sm md:text-base text-gray-500">Manage your subscription, meals, and preferences.</p>
             </div>
             <button
               onClick={() => setIsAutoOrderActive(!isAutoOrderActive)}
@@ -329,147 +340,199 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* 0. NEW: LIVE DELIVERY TRACKER */}
-        {userId && <LiveTrackingCard userId={userId} />}
+        {/* HORIZONTAL TAB NAVIGATION */}
+        <div className="flex overflow-x-auto gap-2 pb-2 mb-2 border-b border-gray-200" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+           {tabs.map(tab => {
+             const Icon = tab.icon;
+             const isActive = activeTab === tab.id;
+             return (
+               <button
+                 key={tab.id}
+                 onClick={() => setActiveTab(tab.id)}
+                 className={`flex items-center gap-2 px-4 py-3 rounded-t-xl font-bold text-sm whitespace-nowrap transition-all border-b-2 ${
+                   isActive 
+                     ? 'bg-orange-50/50 text-orange-600 border-orange-500' 
+                     : 'text-gray-500 border-transparent hover:text-gray-900 hover:bg-gray-100/50'
+                 }`}
+               >
+                 <Icon size={18} />
+                 {tab.label}
+               </button>
+             );
+           })}
+        </div>
 
-        {/* 1. PLAN & CREDITS SUMMARY */}
-        <PlanSummaryCard
-          activePlan={activePlan}
-          credits={credits}
-          balance={balance}
-        />
-
-        {/* 1.5 REFER & EARN BANNER */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.05 }}
-          className="bg-gradient-to-r from-green-600 to-emerald-600 rounded-2xl md:rounded-3xl p-6 md:p-8 shadow-xl text-white relative overflow-hidden"
-        >
-          <div className="absolute -right-10 -top-10 text-white/10 rotate-12">
-            <Gift size={150} />
-          </div>
-
-          <div className="relative z-10">
-            <div className="inline-flex items-center gap-2 bg-white/20 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest mb-4">
-              <Share2 size={14} /> Viral Growth
-            </div>
-
-            <h2 className="text-2xl md:text-3xl font-black mb-2">Refer a friend, get ₹{storeSettings.referral_reward_sender}!</h2>
-            <p className="text-green-50 mb-6 max-w-sm text-sm">
-              Tell your office mates to use your phone number as a Promo Code on their first subscription. They save ₹{storeSettings.referral_reward_receiver}, and you get ₹{storeSettings.referral_reward_sender} added directly to your BowlIt Wallet!
-            </p>
-
-            <div className="bg-white/10 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 backdrop-blur-md border border-white/20">
-              <div>
-                <div className="text-xs font-bold text-green-100 uppercase tracking-widest mb-1">Your Unique Code</div>
-                <div className="text-2xl font-mono font-black tracking-widest">{formData.phone || 'NO_PHONE'}</div>
-              </div>
-              <button
-                onClick={() => {
-                  const message = `Hey! Use my promo code *${formData.phone}* on BowlIt.in to get ₹${storeSettings.referral_reward_receiver} off your first daily meal plan! 🍛`;
-                  window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
-                }}
-                className="w-full sm:w-auto bg-white text-green-700 font-black px-6 py-3 rounded-xl hover:bg-green-50 transition-colors flex items-center justify-center gap-2 shadow-lg"
-              >
-                <Share2 size={18} /> Share on WhatsApp
-              </button>
-            </div>
-          </div>
-        </motion.div>
-
-        {/* 2. SMART MEAL CALENDAR */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-white rounded-2xl md:rounded-3xl p-4 md:p-8 shadow-sm border border-gray-100">
-          <div className="flex flex-col sm:flex-row justify-between items-center mb-4 md:mb-6 gap-3 sm:gap-0">
-            <h3 className="text-lg md:text-xl font-bold text-gray-900 self-start sm:self-auto">Meal Calendar</h3>
-            <div className="flex items-center gap-2 md:gap-4 bg-gray-50 md:bg-transparent rounded-full md:rounded-none p-1 md:p-0">
-              <button onClick={() => changeMonth(-1)} className="p-2 md:p-2 hover:bg-gray-200 md:hover:bg-gray-100 rounded-full"><ChevronLeft size={18} className="md:w-5 md:h-5" /></button>
-              <span className="font-bold text-sm md:text-lg w-28 md:w-32 text-center">{monthNames[month]} {year}</span>
-              <button onClick={() => changeMonth(1)} className="p-2 md:p-2 hover:bg-gray-200 md:hover:bg-gray-100 rounded-full"><ChevronRight size={18} className="md:w-5 md:h-5" /></button>
-            </div>
-          </div>
-
-          <div className="flex gap-2 md:gap-4 mb-4 md:mb-6 text-[10px] md:text-xs font-bold text-gray-500 justify-start flex-wrap">
-            <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-green-500"></span> Delivered</div>
-            <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span> Scheduled</div>
-            <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-red-400"></span> Paused</div>
-            <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-gray-200"></span> No Credits</div>
-          </div>
-
-          <div className="grid grid-cols-7 gap-1 md:gap-2 text-center mb-2">
-            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => <div key={d} className="text-[10px] md:text-xs font-bold text-gray-400 uppercase">{d}</div>)}
-          </div>
-
-          <div className="grid grid-cols-7 gap-1 md:gap-2">
-            {/* Empty slots */}
-            {Array.from({ length: firstDay }).map((_, i) => <div key={`empty-${i}`} />)}
-
-            {/* Days */}
-            {Array.from({ length: days }).map((_, i) => {
-              const day = i + 1;
-              const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-              const checkDate = new Date(dateStr);
-              const isWeekend = checkDate.getDay() === 0 || checkDate.getDay() === 6;
-
-              // Status Checks
-              const isPast = dateStr < todayStr;
-              const isToday = dateStr === todayStr;
-              const hasOrder = orders.some(o => o.created_at.startsWith(dateStr));
-              const isPaused = pausedDates.includes(dateStr);
-              const isScheduled = scheduledDays[dateStr]; // Calculated based on credits!
-
-              let bgClass = "bg-gray-50 text-gray-400";
-              let content = <span>{day}</span>;
-
-              if (isPast) {
-                if (hasOrder) {
-                  bgClass = "bg-green-100 text-green-700 border border-green-200";
-                  content = <div className="flex flex-col items-center"><span>{day}</span><CheckCircle size={10} className="md:w-3 md:h-3 mt-0.5" /></div>;
-                } else {
-                  bgClass = "bg-gray-100 text-gray-400 opacity-50";
-                }
-              } else {
-                // FUTURE
-                if (isWeekend) {
-                  bgClass = "bg-white text-gray-300"; // Weekend style
-                } else if (isPaused) {
-                  bgClass = "bg-red-50 text-red-500 border border-red-200 cursor-pointer hover:bg-red-100";
-                  content = <div className="flex flex-col items-center"><span>{day}</span><span className="text-[7px] md:text-[9px] font-bold mt-0.5">SKIP</span></div>;
-                } else if (isScheduled) {
-                  // HAS CREDITS
-                  bgClass = "bg-blue-50 text-blue-600 border border-blue-100 cursor-pointer hover:bg-blue-100";
-                  const label = activePlan.includes("Lunch + Dinner") ? "2 MEALS" : "MEAL";
-                  content = <div className="flex flex-col items-center"><span>{day}</span><span className="text-[7px] md:text-[9px] font-bold mt-0.5">{label}</span></div>;
-                } else if (isAutoOrderActive) {
-                  // NO CREDITS (Runway ended)
-                  bgClass = "bg-gray-100 text-gray-400 border border-gray-200 cursor-pointer hover:bg-gray-200";
-                  content = <div className="flex flex-col items-center"><span>{day}</span><span className="text-[7px] md:text-[8px] font-bold mt-0.5 leading-tight">NO<br />CREDIT</span></div>;
-                }
-              }
-
-              return (
-                <div
-                  key={day}
-                  onClick={() => !isPast && !isWeekend && togglePauseDate(day)}
-                  className={`h-12 md:h-16 rounded-lg md:rounded-xl flex items-center justify-center text-xs md:text-sm font-bold transition-all ${bgClass}`}
-                >
-                  {content}
+        {/* TAB CONTENTS VIEW SWITCHER */}
+        <div className="min-h-[50vh]">
+          {/* 1. DASHBOARD TAB */}
+          {activeTab === 'dashboard' && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6 md:space-y-8">
+              {userId && <LiveTrackingCard userId={userId} />}
+              <PlanSummaryCard activePlan={activePlan} credits={credits} balance={balance} />
+              
+              {/* REFER & EARN BANNER */}
+              <div className="bg-gradient-to-r from-green-600 to-emerald-600 rounded-2xl md:rounded-3xl p-6 md:p-8 shadow-xl text-white relative overflow-hidden">
+                <div className="absolute -right-10 -top-10 text-white/10 rotate-12">
+                  <Gift size={150} />
                 </div>
-              );
-            })}
-          </div>
-        </motion.div>
+                <div className="relative z-10">
+                  <div className="inline-flex items-center gap-2 bg-white/20 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest mb-4">
+                    <Share2 size={14} /> Viral Growth
+                  </div>
+                  <h2 className="text-2xl md:text-3xl font-black mb-2">Refer a friend, get ₹{storeSettings.referral_reward_sender}!</h2>
+                  <p className="text-green-50 mb-6 max-w-sm text-sm">
+                    Tell your office mates to use your phone number as a Promo Code on their first subscription. They save ₹{storeSettings.referral_reward_receiver}, and you get ₹{storeSettings.referral_reward_sender} added directly to your BowlIt Wallet!
+                  </p>
+                  <div className="bg-white/10 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 backdrop-blur-md border border-white/20">
+                    <div>
+                      <div className="text-xs font-bold text-green-100 uppercase tracking-widest mb-1">Your Unique Code</div>
+                      <div className="text-2xl font-mono font-black tracking-widest">{formData.phone || 'NO_PHONE'}</div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        const message = `Hey! Use my promo code *${formData.phone}* on BowlIt.in to get ₹${storeSettings.referral_reward_receiver} off your first daily meal plan! 🍛`;
+                        window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
+                      }}
+                      className="w-full sm:w-auto bg-white text-green-700 font-black px-6 py-3 rounded-xl hover:bg-green-50 transition-colors flex items-center justify-center gap-2 shadow-lg"
+                    >
+                      <Share2 size={18} /> Share on WhatsApp
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
 
-        {/* 3. SMART DELIVERY MAP */}
-        <AddressManager userId={userId} />
+          {/* 2. CALENDAR TAB */}
+          {activeTab === 'calendar' && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-2xl md:rounded-3xl p-4 md:p-8 shadow-sm border border-gray-100">
+              <div className="flex flex-col sm:flex-row justify-between items-center mb-4 md:mb-6 gap-3 sm:gap-0">
+                <h3 className="text-lg md:text-xl font-bold text-gray-900 self-start sm:self-auto">Meal Calendar</h3>
+                <div className="flex items-center gap-2 md:gap-4 bg-gray-50 md:bg-transparent rounded-full md:rounded-none p-1 md:p-0">
+                  <button onClick={() => changeMonth(-1)} className="p-2 md:p-2 hover:bg-gray-200 md:hover:bg-gray-100 rounded-full"><ChevronLeft size={18} className="md:w-5 md:h-5" /></button>
+                  <span className="font-bold text-sm md:text-lg w-28 md:w-32 text-center">{monthNames[month]} {year}</span>
+                  <button onClick={() => changeMonth(1)} className="p-2 md:p-2 hover:bg-gray-200 md:hover:bg-gray-100 rounded-full"><ChevronRight size={18} className="md:w-5 md:h-5" /></button>
+                </div>
+              </div>
+    
+              <div className="flex gap-2 md:gap-4 mb-4 md:mb-6 text-[10px] md:text-xs font-bold text-gray-500 justify-start flex-wrap">
+                <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-green-500"></span> Delivered</div>
+                <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span> Scheduled</div>
+                <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-red-400"></span> Paused</div>
+                <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-gray-200"></span> No Credits</div>
+              </div>
+    
+              <div className="grid grid-cols-7 gap-1 md:gap-2 text-center mb-2">
+                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => <div key={d} className="text-[10px] md:text-xs font-bold text-gray-400 uppercase">{d}</div>)}
+              </div>
+    
+              <div className="grid grid-cols-7 gap-1 md:gap-2">
+                {/* Empty slots */}
+                {Array.from({ length: firstDay }).map((_, i) => <div key={`empty-${i}`} />)}
+    
+                {/* Days */}
+                {Array.from({ length: days }).map((_, i) => {
+                  const day = i + 1;
+                  const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                  const checkDate = new Date(dateStr);
+                  const isWeekend = checkDate.getDay() === 0 || checkDate.getDay() === 6;
+    
+                  // Status Checks
+                  const isPast = dateStr < todayStr;
+                  const isToday = dateStr === todayStr;
+                  const hasOrder = orders.some(o => o.created_at.startsWith(dateStr));
+                  const isPaused = pausedDates.includes(dateStr);
+                  const isScheduled = scheduledDays[dateStr]; // Calculated based on credits!
+    
+                  let bgClass = "bg-gray-50 text-gray-400";
+                  let content = <span>{day}</span>;
+    
+                  if (isPast) {
+                    if (hasOrder) {
+                      bgClass = "bg-green-100 text-green-700 border border-green-200";
+                      content = <div className="flex flex-col items-center"><span>{day}</span><CheckCircle size={10} className="md:w-3 md:h-3 mt-0.5" /></div>;
+                    } else {
+                      bgClass = "bg-gray-100 text-gray-400 opacity-50";
+                    }
+                  } else {
+                    // FUTURE
+                    if (isWeekend) {
+                      bgClass = "bg-white text-gray-300"; // Weekend style
+                    } else if (isPaused) {
+                      bgClass = "bg-red-50 text-red-500 border border-red-200 cursor-pointer hover:bg-red-100";
+                      content = <div className="flex flex-col items-center"><span>{day}</span><span className="text-[7px] md:text-[9px] font-bold mt-0.5">SKIP</span></div>;
+                    } else if (isScheduled) {
+                      // HAS CREDITS
+                      bgClass = "bg-blue-50 text-blue-600 border border-blue-100 cursor-pointer hover:bg-blue-100";
+                      const label = activePlan.includes("Lunch + Dinner") ? "2 MEALS" : "MEAL";
+                      content = <div className="flex flex-col items-center"><span>{day}</span><span className="text-[7px] md:text-[9px] font-bold mt-0.5">{label}</span></div>;
+                    } else if (isAutoOrderActive) {
+                      // NO CREDITS (Runway ended)
+                      bgClass = "bg-gray-100 text-gray-400 border border-gray-200 cursor-pointer hover:bg-gray-200";
+                      content = <div className="flex flex-col items-center"><span>{day}</span><span className="text-[7px] md:text-[8px] font-bold mt-0.5 leading-tight">NO<br />CREDIT</span></div>;
+                    }
+                  }
+    
+                  return (
+                    <div
+                      key={day}
+                      onClick={() => !isPast && !isWeekend && togglePauseDate(day)}
+                      className={`h-12 md:h-16 rounded-lg md:rounded-xl flex items-center justify-center text-xs md:text-sm font-bold transition-all ${bgClass}`}
+                    >
+                      {content}
+                    </div>
+                  );
+                })}
+              </div>
+            </motion.div>
+          )}
 
-        {/* 4. PERSONAL DETAILS */}
-        <PersonalDetailsForm
-          formData={formData}
-          setFormData={setFormData}
-          handleUpdateProfile={handleUpdateProfile}
-          saving={saving}
-        />
+          {/* 3. ORDER HISTORY TAB */}
+          {activeTab === 'orders' && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-2xl md:rounded-3xl p-6 md:p-8 shadow-sm border border-gray-100">
+               <h3 className="text-lg md:text-xl font-bold text-gray-900 mb-6">Order History</h3>
+               {orders.length === 0 ? (
+                 <div className="text-center py-10 bg-gray-50 rounded-2xl border border-dashed border-gray-200 text-gray-400 font-medium">No orders completely mapped yet.</div>
+               ) : (
+                 <div className="space-y-4">
+                   {orders.sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).map(order => (
+                     <div key={order.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 md:p-6 rounded-2xl border border-gray-100 hover:border-gray-300 hover:shadow-md transition-all gap-4">
+                       <div className="flex items-center gap-4">
+                         <div className={`p-4 rounded-full flex items-center justify-center ${order.status === 'Completed' ? 'bg-green-50 text-green-600' : order.status === 'Cancelled' ? 'bg-red-50 text-red-600' : 'bg-orange-50 text-orange-600'}`}>
+                           <ShoppingBag size={24} />
+                         </div>
+                         <div>
+                            <div className="font-black text-gray-900 text-lg mb-1">Order #{order.id}</div>
+                            <div className="text-xs font-bold text-gray-400 uppercase tracking-wider">{new Date(order.created_at).toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                         </div>
+                       </div>
+                       <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center w-full sm:w-auto mt-2 sm:mt-0 pt-4 sm:pt-0 border-t sm:border-0 border-gray-100">
+                          <span className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest ${order.status === 'Completed' ? 'bg-green-100 text-green-700' : order.status === 'Cancelled' ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'}`}>
+                            {order.status}
+                          </span>
+                          <span className="font-black text-gray-900 text-xl sm:mt-3">₹{parseFloat(order.total_amount).toFixed(2)}</span>
+                       </div>
+                     </div>
+                   ))}
+                 </div>
+               )}
+            </motion.div>
+          )}
+
+          {/* 4. ADDRESSES TAB */}
+          {activeTab === 'addresses' && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+               <AddressManager userId={userId} />
+            </motion.div>
+          )}
+
+          {/* 5. SETTINGS TAB */}
+          {activeTab === 'settings' && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+               <PersonalDetailsForm formData={formData} setFormData={setFormData} handleUpdateProfile={handleUpdateProfile} saving={saving} />
+            </motion.div>
+          )}
+        </div>
       </div>
     </main>
   );
