@@ -2,12 +2,20 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Facebook, Twitter, Instagram, Linkedin, Mail, Phone, MapPin } from 'lucide-react';
+import { useState, useEffect } from 'react';
 
 export default function Footer() {
   const pathname = usePathname();
+  const [isStandalone, setIsStandalone] = useState(false);
 
-  // Hide the footer completely on Admin and Rider dashboards
-  if (pathname?.startsWith('/admin') || pathname?.startsWith('/rider')) {
+  useEffect(() => {
+    if (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true) {
+      setIsStandalone(true);
+    }
+  }, []);
+
+  // Hide the footer completely on Admin and Rider dashboards, and Installed PWA apps
+  if (pathname?.startsWith('/admin') || pathname?.startsWith('/rider') || isStandalone) {
     return null;
   }
 
