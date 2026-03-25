@@ -29,7 +29,7 @@ export default function ProfilePage() {
   const [storeSettings, setStoreSettings] = useState<{ referral_reward_sender: number, referral_reward_receiver: number }>({ referral_reward_sender: 150, referral_reward_receiver: 100 });
 
   // Tab State
-  const [activeTab, setActiveTab] = useState("dashboard");
+  const [activeTab, setActiveTab] = useState("menu");
 
   // NEW: NPS Feedback State
   const [pendingFeedbackOrder, setPendingFeedbackOrder] = useState<any>(null);
